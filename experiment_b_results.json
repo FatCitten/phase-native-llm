@@ -1,0 +1,102 @@
+[
+  {
+    "seed": 0,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 1,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 2,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 3,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 4,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 5,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 6,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 7,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 8,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  },
+  {
+    "seed": 9,
+    "z3_accuracy": 1.0,
+    "z5_accuracy": 1.0,
+    "crt_closure_rate": 1.0,
+    "holonomy_closes": true,
+    "mod3_correct": 500,
+    "mod5_correct": 500,
+    "crt_correct": 500
+  }
+]
