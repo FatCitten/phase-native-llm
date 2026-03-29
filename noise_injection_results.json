@@ -1,0 +1,51 @@
+[
+  {
+    "noise_prob": 0.0,
+    "mean_accuracy": 1.0,
+    "mean_phase_mean": 3.141603946685791,
+    "mean_phase_std": 1.6827916624606587e-05,
+    "std_accuracy": 0.0
+  },
+  {
+    "noise_prob": 0.05,
+    "mean_accuracy": 0.5060999929904938,
+    "mean_phase_mean": 2.799163579940796,
+    "mean_phase_std": 1.293874979019165,
+    "std_accuracy": 0.004892846556356969
+  },
+  {
+    "noise_prob": 0.1,
+    "mean_accuracy": 0.5013000011444092,
+    "mean_phase_mean": 3.512969970703125,
+    "mean_phase_std": 1.4375064373016357,
+    "std_accuracy": 0.013336417169430232
+  },
+  {
+    "noise_prob": 0.15,
+    "mean_accuracy": 0.5058999955654144,
+    "mean_phase_mean": 3.262181043624878,
+    "mean_phase_std": 1.432401418685913,
+    "std_accuracy": 0.007151218035142338
+  },
+  {
+    "noise_prob": 0.2,
+    "mean_accuracy": 0.5169000029563904,
+    "mean_phase_mean": 4.506882667541504,
+    "mean_phase_std": 1.3964697122573853,
+    "std_accuracy": 0.005171061219354034
+  },
+  {
+    "noise_prob": 0.25,
+    "mean_accuracy": 0.499099999666214,
+    "mean_phase_mean": 2.7148337364196777,
+    "mean_phase_std": 1.4833288192749023,
+    "std_accuracy": 0.008254695646121238
+  },
+  {
+    "noise_prob": 0.3,
+    "mean_accuracy": 0.5002000033855438,
+    "mean_phase_mean": 1.8042999505996704,
+    "mean_phase_std": 1.468491792678833,
+    "std_accuracy": 0.011690177573649022
+  }
+]

@@ -1,0 +1,51 @@
+[
+  {
+    "sigma": 0.0,
+    "mean_accuracy": 1.0,
+    "std_accuracy": 0.0,
+    "mean_phase_mean": 3.141603946685791,
+    "mean_phase_std": 1.6827916624606587e-05
+  },
+  {
+    "sigma": 0.01,
+    "mean_accuracy": 1.0,
+    "std_accuracy": 0.0,
+    "mean_phase_mean": 3.1665825843811035,
+    "mean_phase_std": 0.0022300477139651775
+  },
+  {
+    "sigma": 0.02,
+    "mean_accuracy": 1.0,
+    "std_accuracy": 0.0,
+    "mean_phase_mean": 3.191236734390259,
+    "mean_phase_std": 0.0039810910820961
+  },
+  {
+    "sigma": 0.05,
+    "mean_accuracy": 1.0,
+    "std_accuracy": 0.0,
+    "mean_phase_mean": 3.2597928047180176,
+    "mean_phase_std": 0.009145705960690975
+  },
+  {
+    "sigma": 0.1,
+    "mean_accuracy": 0.49350000619888307,
+    "std_accuracy": 0.011768612344341041,
+    "mean_phase_mean": 3.0483345985412598,
+    "mean_phase_std": 1.2171698808670044
+  },
+  {
+    "sigma": 0.15,
+    "mean_accuracy": 0.5114000022411347,
+    "std_accuracy": 0.015203284310337784,
+    "mean_phase_mean": 3.530919313430786,
+    "mean_phase_std": 1.3103618621826172
+  },
+  {
+    "sigma": 0.2,
+    "mean_accuracy": 0.5040000140666961,
+    "std_accuracy": 0.009690211186200259,
+    "mean_phase_mean": 3.238085985183716,
+    "mean_phase_std": 1.2167744636535645
+  }
+]

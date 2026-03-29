@@ -1,0 +1,7 @@
+{
+  "holonomy_16": {
+    "n_bits": 16,
+    "n_params": 12593,
+    "train_acc": 0.929,
+    "test_acc": 0.862,
+    "phase_mean": 
