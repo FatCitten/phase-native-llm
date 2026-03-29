@@ -1,0 +1,4 @@
+__pycache__/
+*.png
+*.pyc
+scale_test_results.json

@@ -1,0 +1,94 @@
+# PHASE-NATIVE LLM — IMPLEMENTATION ROADMAP
+
+## Core Thesis
+Current ML stores POSITIONS (coordinates). Phase-native stores CONNECTIONS (curvature rules).
+- Current NNs = maps. Phase-native = instruments for reading the geometry of meaning.
+- Knowledge = holonomy. Memory = curvature. Geometry remembers.
+
+## Key Papers
+- arxiv.org/pdf/2509.10536 — "Contextuality via Group-Valued Holonomies in RBMs"
+- FiberNet (2025), Bundle Networks (2021)
+- Geoopt library for Riemannian optimization
+
+## The Primitives
+- **Fiber** = concept (stable thing)
+- **Radius** = relation (how concepts relate)
+- **Bundle** = trajectory of concept + relation interactions
+- **Helix** = non-collapsible memory that embeds past into present
+- **Golden ratio** = most irrational number = stable attractor (emerges at higher levels)
+
+## Information Injection
+Input sets BOTH:
+1. Initial phase conditions (φ₀)
+2. Connection field perturbation (∇₀ = ∇_rest + ε·Curvature(input))
+
+## Stable State
+LIMIT CYCLE — specifically a torus knot in phase space.
+- NOT fixed point (can't process sequences)
+- NOT chaos (gradients are chaotic)
+- Structured rotation: phase offsets encode knowledge, rotation rate is the clock
+
+## Retrieval
+NOT coordinate lookup. GEOMETRIC MEASUREMENT:
+- Query phase φ_q
+- Transport through bundle (forward pass through learned connection)
+- Measure holonomy (phase offset)
+- Decode pattern of Δφ values → output distribution
+
+## Holonomy Loss (Formulation B)
+```
+L_hol = ||R(γ) - exp(∮ A·dx)||²_F
+```
+- R(γ) = actual transport around loop
+- exp(∮ A·dx) = predicted holonomy from connection field
+- A_predicted is a LEARNED parameter (not fixed)
+- Loss enforces consistency between prediction and reality
+
+## λ Schedule
+| Epochs | λ | Signal |
+|--------|---|--------|
+| 0-20 | 0.0 | BCE only (learn task) |
+| 20-50 | 0.1 | BCE + gentle geometry |
+| 50-100 | 0.3 | BCE + strong geometry |
+| 100+ | 0.1 | Fine-tune |
+
+## File Structure
+```
+PHASE NATIVE LLM/
+├── PHASE-NATIVE-CONTEXT.txt        # Original theory document
+├── IMPLEMENTATION-ROADMAP.txt     # This file
+├── sanity_checks.py               # File 0: Environment + formula verification
+├── minimal_bundle.py              # File 1: 2-fiber XOR proof of concept
+├── measure_kappa.py               # File 2: κ measurement tool
+└── scale_test.py                  # File 3: Parity ladder + efficiency claim
+```
+
+## Implementation Ladder
+| Level | Fibers | Task | Params | Key Insight |
+|-------|--------|------|--------|-------------|
+| 1 | 2 | XOR | 4 | Holonomy = XOR |
+| 2 | 4 | 4-bit parity | ~8 | Scales linearly |
+| 3 | 8 | 8-bit parity | ~16 | Interference pressure |
+| 4+ | 16+ | 16-bit parity | ~50+ | Golden ratio emerges |
+
+## Parity = Holonomy
+Each bit flip = phase rotation of π
+N flips = total rotation Nπ
+Even parity = e^(i·2kπ) = 1
+Odd parity = e^(i·(2k+1)π) = -1
+**Parity IS the computation the architecture performs natively.**
+
+## Verification Experiments
+1. **κ increases with training** — geometry IS learned
+2. **Holonomy decoding works frozen** — geometry ENCODES knowledge
+3. **Less catastrophic forgetting** — geometry PROTECTS knowledge
+4. **Better off-distribution** — geometry GENERALIZES
+
+## Success Criteria (File 1)
+- [ ] All 4 XOR inputs classified correctly
+- [ ] Holonomy(0,0) ≈ Holonomy(1,1) [same class]
+- [ ] Holonomy(0,1) ≈ Holonomy(1,0) [same class]
+- [ ] Holonomy class 0 ≠ Holonomy class 1 [geometrically distinct]
+- [ ] A_predicted converges to stable value
+- [ ] κ is measurable and nonzero
+- [ ] BCE loss < 0.01
