@@ -1,5 +1,5 @@
 # PHASE-NATIVE LLM — UPDATED HANDOFF
-**Last Updated:** March 29, 2026
+**Last Updated:** March 30, 2026
 
 ---
 
@@ -9,136 +9,84 @@ A neural network architecture that encodes computation in geometric phase angles
 
 ---
 
-## CORE ARCHITECTURE
+## CONTROL EXPERIMENT v3 (Random LUT)
 
-### ZkBundle (for Z_k modular arithmetic)
+### Purpose
+Test whether ZkBundle architecture requires GROUP STRUCTURE or can learn arbitrary deterministic patterns. Uses random lookup table as ground truth.
+
+### Architecture: ZkBundleSimpleScaled
 ```python
-class ZkBundle(nn.Module):
+class ZkBundleSimpleScaled(nn.Module):
     def __init__(self, k):
-        self.input_phases = nn.Parameter(torch.tensor([i * 2 * math.pi / k for i in range(k)]))
-        self.output_phases = nn.Parameter(torch.tensor([i * 2 * math.pi / k for i in range(k)]))
+        self.k = k
+        self.input_phases = nn.Parameter(2 * math.pi * torch.arange(k) / k)
+        self.output_phases = nn.Parameter(2 * math.pi * torch.arange(k) / k)
     
     def forward(self, x1, x2):
         p1 = self.input_phases[x1]
         p2 = self.input_phases[x2]
         phi = (p1 + p2) % (2 * math.pi)
-        dists = torch.abs(phi.unsqueeze(-1) - self.output_phases.unsqueeze(0))
-        dists = dists % (2 * math.pi)
-        dists = torch.min(dists, 2 * math.pi - dists)
-        return -dists
+        # ... distance computation
 ```
 
----
+### Experiments Completed
 
-## COMPLETED EXPERIMENTS
+| Step | File | Description |
+|------|------|-------------|
+| 1 | step1_mul_mod_k.py | Fixed variance issue |
+| 2 | step2_ceiling_test.py | Verified phase arithmetic at all scales |
+| 3 | step3_heatmap.py | DIAGONAL_FAILURE pattern discovered |
+| 4 | step4_phase_resolution_scaling.py | k=5,7,11 with sigmoid fits |
+| 5 | step5_k13_k17_scaling.py | Extended to k=13,17 |
+| 6 | step6_normalization_fix.py | Fixed normalization bug |
+| 7 | step7_k13_k17_retrain.py | Retrained with consistent normalization |
 
-### NEW-A: Phase Convergence ✅
-- **Method**: Train Z_7 with 20 seeds, measure phase spacing variance
-- **Result**: Mean input variance ratio = 0.012, output = 0.024
-- **Conclusion**: Phases converge uniformly to 2πj/k ± offset
+### Final Results (Wrapped Normalization)
 
-### NEW-B: Z_4 Generalization ✅
-- **Method**: Train on 12/16 pairs, test on 4 held-out pairs
-- **Result**: 100% train AND test accuracy
-- **Conclusion**: Single network learns Z_4 addition. Different from CRT composition test.
+| k | theta | beta | R² |
+|---|-------|------|-----|
+| 5 | 0.069 | 0.168 | 0.999 |
+| 7 | 0.134 | 0.155 | 0.991 |
+| 11 | 0.141 | 0.148 | 0.902 |
+| 13 | 0.318 | 0.168 | 0.974 |
+| 17 | 0.452 | 0.264 | 0.960 |
 
-### NEW-C: Non-Group Control ⚠️ (INVALID - See Q3)
-- **Method**: Train on max(a,b) mod k (no group structure)
-- **Results**: See table above (ratio increases with k)
-- **Finding**: acc × k ≈ 1.09 + 0.605 × k, acc → ~60% at large k
-- **CONCLUSION (INVALID)**: max(a,b) mod k = max(a,b) for inputs in {0..k-1}
-- The mod is VACUOUS - tests lattice structure, NOT non-group
-- **RETIRED** - needs random LUT control (see Q3)
+### Scaling Law Fits
+- **Power law**: k^1.72, R²=0.92 (WINNER)
+- **Constant**: R²=0.00 (ruled out)
+- **Beta**: NOT universal (std=0.042 > 0.015 threshold)
 
-### NEW-D: Scaling Law ✅
-- **Method**: k = 3,5,7,11,13,17,19,23,29, 50 seeds each, 200-point sigma grid
-- **Results**:
-  | k | C(k) = σ*×k | std |
-  |---|-------------|-----|
-  | 3 | 1.7126 | 0.034 |
-  | 5 | 1.7206 | 0.036 |
-  | 7 | 1.7321 | 0.039 |
-  | 11 | 1.7379 | 0.050 |
-  | 13 | 1.7651 | 0.050 |
-  | 17 | 1.7701 | 0.064 |
-  | 19 | 1.7663 | 0.058 |
-  | 23 | 1.7984 | 0.057 |
-  | 29 | 1.7925 | 0.067 |
-- **Curve Fit**:
-  - Model A (constant): C_∞ = 1.755 ± 0.010, RMSE = 0.029
-  - Model B (C_∞ - D/k): C_∞ = 1.786 ± 0.009, D = 0.268 ± 0.062, RMSE = 0.015
-- **AIC**: ΔAIC = -9.8 → Model B favored
-- **Note**: Original H2 (C_∞=1.944, D=0.623) is WRONG - retired
+### CRITICAL FINDING: DIAGONAL FAILURE
+- Model learns "a ≠ b → pick larger" perfectly (100% on upper/lower triangles)
+- Fails on diagonal (a == b) because phase addition cannot resolve equal inputs
+- This is the STRUCTURED failure pattern - NOT random noise
 
-### NEW-E: Z_6 Composite Test ✅
-- **Method**: Train Z_6 (6 = 2×3, composite, NOT prime power), 10 seeds
-- **Result**: 100% accuracy, 10/10 pass
-- **Conclusion**: Supports "not prime-power" rule for single networks
+### Normalization Bug (FIXED)
+- Original: k=5,7,11 used x = d/k; k=13,17 used x = 2*min(d,k-d)/k
+- Fixed: All use wrapped normalization x = 2*min(d,k-d)/k
 
----
-
-## EXISTING RESULTS (Don't Re-run)
-
-- **CRT Composition**: Z_3×Z_5→Z_15 = 100%, Z_2×Z_2→Z_4 = 0%
-- **experiment_1_results.json**: σ*×k data (50 seeds, k=3,5,7,11)
-- **experiment_b_results.json**: CRT verification
-
----
-
-## HYPERPARAMETERS
-
+### Architecture Settings
 - Learning rate: 0.1
 - Optimizer: Adam
 - Epochs: 150
+- Seeds: 10
 - n_samples: 1000
 
 ---
 
-## OPEN QUESTIONS (For Future Agents)
+## VERIFIED EXPERIMENTS (v1/v2)
 
-### OPEN Q1: True Asymptote
-- C_∞ ≈ 1.786 ± 0.009 from fit
-- ln(6) = 1.7918 → within error bars! Coincidence?
-- **Action**: Test k = 37, 41, 43 to see if C(k) continues growing or plateaus
+### NEW-A: Phase Convergence
+- **Result**: Mean input variance ratio = 0.012, output = 0.024
 
-### OPEN Q2: Model A vs Model B
-- AIC favors Model B but only 9 data points, 2 params
-- **Action**: More data (k > 29) would clarify
+### NEW-B: Z_4 Generalization
+- **Result**: 100% train AND test accuracy
 
-### OPEN Q3: NEW-C Interpretation (CORRECTION)
-- **CRITICAL**: max(a,b) mod k = max(a,b) for inputs in {0,...,k-1}
-- The mod is VACUOUS - no difference between operations!
-- NEW-C tests lattice structure, NOT absence of structure
-- **NOT a valid non-group control** - retire this finding
+### NEW-D: Scaling Law
+- **Result**: C_∞ ≈ 1.786 ± 0.009
 
-### What a REAL control looks like:
-```python
-# Option 3: Random lookup table (gold standard)
-random.seed(42)
-f = { (a,b): random.randint(0,k-1) for a in range(k) for b in range(k) }
-label = f[(a.item(), b.item())]
-```
-- Pre-generate random mapping f(a,b) → {0,...,k-1}
-- Same table used for all training/test
-- If network learns random LUT above chance → architecture is universal approximator
-- **This is the actual control to run**
-
-### OPEN Q4: CRT Composition Boundary
-- Z_2×Z_2→Z_4 = 0% (fails)
-- Single Z_4 network = 100% (succeeds)
-- What exactly causes CRT failure?
-  - gcd(k1, k2) > 1? 
-  - Non-cyclic group structure?
-  - Something else?
-- **Action**: Test Z_2×Z_4→Z_8, Z_3×Z_3→Z_9, Z_4×Z_5→Z_20
-
----
-
-## RETIRED HYPOTHESES
-
-- ❌ C_∞ = 1.944 (not supported by data)
-- ❌ D = 0.623 (not supported by data)  
-- ❌ σ*×k = constant at 1.82 (midpoint, not asymptote)
+### NEW-E: Z_6 Composite Test
+- **Result**: 100% accuracy, 10/10 pass
 
 ---
 
@@ -146,51 +94,43 @@ label = f[(a.item(), b.item())]
 
 ```
 phase-native-llm/
-├── minimal-handoff.md      # Quick summary
-├── handoff.md              # This file - detailed guide
-├── README.md               # Quick index (create)
+├── README.md                     # Quick index
+├── handoff.md                    # This file
 │
 ├── experiments/
-│   ├── valid/              # Verified experiments
+│   ├── control_v3/               # Random LUT control (THIS RUN)
+│   │   ├── control_v3_step1_mul_mod_k.py
+│   │   ├── control_v3_step2_ceiling_test.py
+│   │   ├── control_v3_step3_heatmap.py
+│   │   ├── control_v3_step3_analysis.py
+│   │   ├── control_v3_step4_phase_resolution_scaling.py
+│   │   ├── control_v3_step5_k13_k17_scaling.py
+│   │   ├── control_v3_step6_normalization_fix.py
+│   │   └── control_v3_step7_k13_k17_retrain.py
+│   │
+│   ├── valid/                   # Verified experiments
 │   │   ├── phase_convergence.py
 │   │   ├── z_4_generalization.py
 │   │   ├── scaling_law.py
 │   │   └── z_6_composite.py
 │   │
-│   ├── invalid/            # Known issues
-│   │   └── nongroup_control_INVALID.py
-│   │
-│   └── legacy/            # Historical experiments
-│       ├── experiment_1_scaling_law.py
-│       ├── experiment_2_*.py
-│       ├── experiment_3_*.py
-│       ├── experiment_4_*.py
-│       ├── experiment_a_*.py
-│       ├── experiment_b_crt.py
-│       ├── experiment_c_*.py
-│       └── crt_verified.py
+│   ├── invalid/                 # Known issues
+│   └── legacy/                  # Historical
 │
-├── results/
-│   ├── valid/              # Verified results
-│   └── legacy/            # Historical results
-│
-├── analysis/               # Debug, measure, noise experiments
-│   ├── debug_*.py
-│   ├── measure_*.py
-│   └── zk_*_noise.py
-│
-└── scratch/                # Exploratory / unverified
-    ├── mnist_experiment.py
-    ├── critical_*.py
-    └── phase_transition*.py
+└── results/
+    └── control_v3/               # Control experiment outputs
+        ├── phase_resolution_fit.json
+        ├── step6_k5_7_11_corrected.json
+        └── ...
 ```
 
-### Folder Descriptions:
-- **experiments/valid/** - Reproducible, verified results (use these)
-- **experiments/invalid/** - Known issues, do not rely on
-- **experiments/legacy/** - Historical context, may have bugs
-- **analysis/** - Debug scripts and measurement tools
-- **scratch/** - Exploratory code, not verified
+---
+
+## OPEN QUESTIONS
+
+1. **Retrain k=11**: Fresh training to verify undertraining hypothesis
+2. **Larger k**: Test k=23,29 to confirm scaling trend
+3. **Beta universality**: More data needed
 
 ---
 

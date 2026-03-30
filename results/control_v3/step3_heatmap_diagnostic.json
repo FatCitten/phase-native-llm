@@ -1,0 +1,47 @@
+{
+  "5": {
+    "diagonal": {
+      "mean": 0.4000000059604645,
+      "std": 0.0
+    },
+    "upper": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "lower": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "pattern": "MIXED/SCATTERED: No clear pattern"
+  },
+  "7": {
+    "diagonal": {
+      "mean": 0.285714328289032,
+      "std": 2.9802322387695312e-08
+    },
+    "upper": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "lower": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "pattern": "MIXED/SCATTERED: No clear pattern"
+  },
+  "11": {
+    "diagonal": {
+      "mean": 0.18181820213794708,
+      "std": 1.4901161193847656e-08
+    },
+    "upper": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "lower": {
+      "mean": 1.0,
+      "std": 0.0
+    },
+    "pattern": "MIXED/SCATTERED: No clear pattern"
+  }
+}
