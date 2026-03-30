@@ -88,25 +88,31 @@ class ZkBundle(nn.Module):
 - k=11: σ* = 0.171, k×σ* = 1.89
 - **σ* ∝ 1/k CONFIRMED** - This is a major theoretical result!
 
-### 7. Data Independence (NEW!)
+### 7. Data Independence
 - σ* is INDEPENDENT of training set size n!
 - Tested n = [64, 128, 256, 512, 1024, 2048]
 - σ* × k ≈ 1.81 ± 0.09 across ALL n values
-- **DATA INDEPENDENT CONFIRMED** - Network learns group structure, not training data
+- **DATA INDEPENDENT CONFIRMED**
 
-### 8. CRT Composition (NEW! MAJOR!)
-- Train Z_3 and Z_5 SEPARATELY (no Z_15 training)
-- Compose for Z_15 using Chinese Remainder Theorem
-- **100% CRT closure rate (10/10 seeds)**
-- **CRT EMERGENCE CONFIRMED** - Geometric composition works without retraining!
-- This proves the network discovers group structure from fiber + bundle alone
+### 8. CRT Composition (MAJOR!)
+- Train Z_k SEPARATELY, compose using Chinese Remainder Theorem
+- gcd=1 pairs: Z_3×Z_5→Z_15, Z_3×Z_7→Z_21, Z_5×Z_7→Z_35: **100% closure**
+- gcd>1 pairs: Z_2×Z_2→Z_4: **0% closure**
+- **CRT EMERGENCE CONFIRMED** - Network implements CRT!
+- CRT function was BUGGY - fixed with verified implementation
 
-### 9. Curvature Visualization (NEW!)
+### 9. Scaling Law (HIGH PRECISION)
+- k=3: σ* = 0.579, σ*×k = 1.74
+- k=5: σ* = 0.352, σ*×k = 1.76
+- k=7: σ* = 0.256, σ*×k = 1.79
+- k=11: σ* = 0.164, σ*×k = 1.81
+- Mean constant: 1.775 ± 0.028
+- Closest to π/√3 = 1.814 (1.4 std devs)
+
+### 10. Curvature Visualization
 - Curvature matrices are structured (not random)
 - Diagonal = 0 (curvature vanishes on proper loops)
 - Off-diagonal ≈ 0.5 (maximum phase separation)
-- Structure is consistent across seeds
-- Curvature complexity scales with k
 - Publication-quality visualizations generated
 
 ---
@@ -119,16 +125,50 @@ class ZkBundle(nn.Module):
 | Fine noise sweep (σ=0-0.2) | DONE | Sharp first-order at σ=0.07 |
 | Critical point bimodality | DONE | 5/20 success, 15/20 fail |
 | MNIST classification | DONE | 87.4% with binary bottleneck |
-| Z_k bit-flip noise | DONE | Very robust (>20% flip OK) |
-| Z_k phase noise during training | DONE | Too robust (learns around it) |
 | Z_k test-time noise | DONE | σ* ~ 1/k CONFIRMED |
-| Data independence (n varying) | DONE | **DATA INDEPENDENT CONFIRMED** |
-| CRT composition | DONE | **CRT EMERGENCE CONFIRMED (100%)** |
-| Curvature visualization | DONE | Publication-quality plots generated |
+| Data independence | DONE | DATA INDEPENDENT CONFIRMED |
+| CRT composition | DONE | **CRT EMERGENCE CONFIRMED** (verified CRT) |
+| Scaling law (high precision) | DONE | σ*×k = 1.775 ± 0.028 |
+| Curvature visualization | DONE | Publication-quality plots |
 
 ---
 
-## THE NEXT EXPERIMENT (PENDING)
+## THE NEXT EXPERIMENTS (PENDING)
+
+### Experiment 3: Curvature Phase Transition
+- For k=7, train at σ = [0.1, 0.2, 0.26, 0.28, 0.30, 0.32, 0.34, 0.4, 0.5]
+- Compute Q = mean(|off-diagonal|) - mean(|diagonal|)
+- Plot Q vs σ - expect sharp drop at σ* ≈ 0.26
+
+### Experiment 4: Holonomy vs Accuracy Divergence
+- k=11, σ in [0.0, 0.35]
+- Measure BOTH classification accuracy AND holonomy closure
+- Find where they diverge
+
+### Experiment 5: MNIST Connection
+- Add phase noise to MNIST network
+- Find σ*_MNIST where accuracy < 80%
+- Predict: σ*_MNIST ≈ 1.82/10 = 0.182
+
+### Experiment 6: Seed Stability Audit
+- Re-run key results with 50 seeds
+- Report mean, std, histograms
+
+---
+
+## CRT FUNCTION (VERIFIED)
+
+```python
+def crt(a1, m1, a2, m2):
+    """Solve x ≡ a1 (mod m1), x ≡ a2 (mod m2)"""
+    import math
+    if math.gcd(m1, m2) != 1:
+        return None
+    inv_m1 = pow(m1, -1, m2)
+    inv_m2 = pow(m2, -1, m1)
+    M = m1 * m2
+    return (a1 * m2 * inv_m2 + a2 * m1 * inv_m1) % M
+```
 
 ---
 
@@ -163,13 +203,13 @@ PHASE-NATIVE-LLM/
 ├── experiment_4a_binary_bottleneck.py
 ├── critical_point_analysis.py       ← Bimodality confirmation
 ├── measure_g.py                    ← Encoder gain
-├── critical_sigma_zk.py            ← Z_k noise (wrong method)
-├── zk_phase_noise.py               ← Z_k noise (wrong method)
-├── zk_phase_noise_v2.py            ← Z_k noise during training
-├── zk_test_time_noise.py           ← TEST-TIME NOISE (σ* ~ 1/k!)
-├── experiment_a_data_independence.py ← DATA INDEPENDENCE TEST
-├── experiment_b_crt.py              ← CRT COMPOSITION TEST
-├── experiment_c_curvature.py        ← CURVATURE VISUALIZATION
+├── zk_test_time_noise.py           ← σ* ~ 1/k
+├── experiment_a_data_independence.py ← DATA INDEPENDENCE
+├── experiment_b_crt.py              ← CRT COMPOSITION
+├── experiment_c_curvature.py        ← CURVATURE
+├── experiment_1_scaling_law.py      ← HIGH PRECISION σ*
+├── experiment_crt_verified.py       ← VERIFIED CRT
+├── test_crt.py                      ← CRT UNIT TESTS
 └── [visualization PNGs]
 ```
 
@@ -180,14 +220,18 @@ PHASE-NATIVE-LLM/
 ```
 Read HANDOFF.md. We are continuing phase-native neural network research.
 
-The key findings so far:
-1. Z_k modular arithmetic works perfectly (discovers group representations)
-2. Parity shows first-order phase transition at n≈60
-3. Bimodal distribution at critical point confirmed!
-4. MNIST works at 87% with binary bottleneck
-5. Z_k test-time noise: σ* ~ 1/k CONFIRMED (σ* × k ≈ 1.82)
+The key findings:
+1. σ* × k ≈ 1.775 (data independent) - THE SCALING LAW
+2. CRT composition works: Z_3×Z_5→Z_15 = 100%, Z_3×Z_7→Z_21 = 100%
+3. gcd>1 fails: Z_2×Z_2→Z_4 = 0%
+4. Curvature visualization done
+5. CRT function was buggy - now fixed and verified
 
-Ready for next experiment!
+Pending experiments:
+- Curvature phase transition (Q vs σ)
+- Holonomy vs accuracy divergence
+- MNIST with noise (predict σ* ≈ 0.182)
+- Seed stability audit (50 seeds)
 ```
 
 ---
