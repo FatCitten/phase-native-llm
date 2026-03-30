@@ -1,0 +1,282 @@
+{
+  "k_values": [
+    3,
+    5,
+    7,
+    11
+  ],
+  "n_seeds": 10,
+  "n_samples": 1000,
+  "epochs": 150,
+  "operation": "max(a,b) mod k",
+  "results": {
+    "3": {
+      "mean_accuracy": 0.9485000014305115,
+      "mean_input_uniformity": 0.36662067238307305,
+      "mean_output_uniformity": 0.3698113924079323,
+      "seeds": [
+        {
+          "seed": 0,
+          "accuracy": 0.8050000071525574,
+          "input_phase_uniformity": 0.5113743001110547,
+          "output_phase_uniformity": 0.685348495944902
+        },
+        {
+          "seed": 1,
+          "accuracy": 0.7789999842643738,
+          "input_phase_uniformity": 0.0997556249376611,
+          "output_phase_uniformity": -0.013111486631264047
+        },
+        {
+          "seed": 2,
+          "accuracy": 1.0,
+          "input_phase_uniformity": 0.7419369547279162,
+          "output_phase_uniformity": 0.6534747351641205
+        },
+        {
+          "seed": 3,
+          "accuracy": 0.9010000228881836,
+          "input_phase_uniformity": 0.7056000068339898,
+          "output_phase_uniformity": 0.7012352598222578
+        },
+        {
+          "seed": 4,
+          "accuracy": 1.0,
+          "input_phase_uniformity": 0.7272592766292603,
+          "output_phase_uniformity": 0.6461779017781881
+        },
+        {
+          "seed": 5,
+          "accuracy": 1.0,
+          "input_phase_uniformity": 0.7130834182207497,
+          "output_phase_uniformity": 0.6678414119825684
+        },
+        {
+          "seed": 6,
+          "accuracy": 1.0,
+          "input_phase_uniformity": -0.25168601006279356,
+          "output_phase_uniformity": -0.11852760175286536
+        },
+        {
+          "seed": 7,
+          "accuracy": 1.0,
+          "input_phase_uniformity": 0.7380716083809982,
+          "output_phase_uniformity": 0.6946888080940159
+        },
+        {
+          "seed": 8,
+          "accuracy": 1.0,
+          "input_phase_uniformity": -0.1799159759751059,
+          "output_phase_uniformity": -0.12726808099724463
+        },
+        {
+          "seed": 9,
+          "accuracy": 1.0,
+          "input_phase_uniformity": -0.13927247997300052,
+          "output_phase_uniformity": -0.09174551932535602
+        }
+      ]
+    },
+    "5": {
+      "mean_accuracy": 0.8467000007629395,
+      "mean_input_uniformity": 0.13155358484821622,
+      "mean_output_uniformity": 0.5744524512759891,
+      "seeds": [
+        {
+          "seed": 0,
+          "accuracy": 0.8650000095367432,
+          "input_phase_uniformity": 0.1588704568581768,
+          "output_phase_uniformity": 0.320220205348865
+        },
+        {
+          "seed": 1,
+          "accuracy": 0.8420000076293945,
+          "input_phase_uniformity": -0.07119478923237854,
+          "output_phase_uniformity": 0.5534371568545581
+        },
+        {
+          "seed": 2,
+          "accuracy": 0.8130000233650208,
+          "input_phase_uniformity": 0.5190149481443325,
+          "output_phase_uniformity": 0.43187178989124786
+        },
+        {
+          "seed": 3,
+          "accuracy": 0.8830000162124634,
+          "input_phase_uniformity": 0.5342378745526062,
+          "output_phase_uniformity": 0.4649107904308074
+        },
+        {
+          "seed": 4,
+          "accuracy": 0.824999988079071,
+          "input_phase_uniformity": -0.05864270394892612,
+          "output_phase_uniformity": 0.7180593722994594
+        },
+        {
+          "seed": 5,
+          "accuracy": 0.8429999947547913,
+          "input_phase_uniformity": -0.06078178638774023,
+          "output_phase_uniformity": 0.6839172962089428
+        },
+        {
+          "seed": 6,
+          "accuracy": 0.8169999718666077,
+          "input_phase_uniformity": -0.07966023952617851,
+          "output_phase_uniformity": 0.6997600860003297
+        },
+        {
+          "seed": 7,
+          "accuracy": 0.8339999914169312,
+          "input_phase_uniformity": -0.03381525090714521,
+          "output_phase_uniformity": 0.7259600987581332
+        },
+        {
+          "seed": 8,
+          "accuracy": 0.828000009059906,
+          "input_phase_uniformity": -0.10572585408250124,
+          "output_phase_uniformity": 0.7022283218957084
+        },
+        {
+          "seed": 9,
+          "accuracy": 0.9169999957084656,
+          "input_phase_uniformity": 0.5132331930119167,
+          "output_phase_uniformity": 0.4441593950718392
+        }
+      ]
+    },
+    "7": {
+      "mean_accuracy": 0.7530999958515168,
+      "mean_input_uniformity": 0.07695728449450759,
+      "mean_output_uniformity": 0.23194115817768574,
+      "seeds": [
+        {
+          "seed": 0,
+          "accuracy": 0.7319999933242798,
+          "input_phase_uniformity": 0.3532569481314488,
+          "output_phase_uniformity": 0.315260292728331
+        },
+        {
+          "seed": 1,
+          "accuracy": 0.6990000009536743,
+          "input_phase_uniformity": 0.17482156680933847,
+          "output_phase_uniformity": 0.5285292783353002
+        },
+        {
+          "seed": 2,
+          "accuracy": 0.7419999837875366,
+          "input_phase_uniformity": 0.37507186086243105,
+          "output_phase_uniformity": 0.32875723033334237
+        },
+        {
+          "seed": 3,
+          "accuracy": 0.7269999980926514,
+          "input_phase_uniformity": 0.36755512384434585,
+          "output_phase_uniformity": 0.3039119429087286
+        },
+        {
+          "seed": 4,
+          "accuracy": 0.7979999780654907,
+          "input_phase_uniformity": 0.16043845959138714,
+          "output_phase_uniformity": 0.5516202553875309
+        },
+        {
+          "seed": 5,
+          "accuracy": 0.7459999918937683,
+          "input_phase_uniformity": -0.3025361233601169,
+          "output_phase_uniformity": -0.25168453018847337
+        },
+        {
+          "seed": 6,
+          "accuracy": 0.8029999732971191,
+          "input_phase_uniformity": 0.12116896049094195,
+          "output_phase_uniformity": 0.48616329874506903
+        },
+        {
+          "seed": 7,
+          "accuracy": 0.7549999952316284,
+          "input_phase_uniformity": -0.25379725948073983,
+          "output_phase_uniformity": -0.17616853576873526
+        },
+        {
+          "seed": 8,
+          "accuracy": 0.781000018119812,
+          "input_phase_uniformity": 0.13467984306550884,
+          "output_phase_uniformity": 0.4912809365603742
+        },
+        {
+          "seed": 9,
+          "accuracy": 0.7480000257492065,
+          "input_phase_uniformity": -0.3610865350094694,
+          "output_phase_uniformity": -0.2582585872646106
+        }
+      ]
+    },
+    "11": {
+      "mean_accuracy": 0.7042999982833862,
+      "mean_input_uniformity": -0.05046472967683021,
+      "mean_output_uniformity": 0.07092239591098942,
+      "seeds": [
+        {
+          "seed": 0,
+          "accuracy": 0.7540000081062317,
+          "input_phase_uniformity": 0.19623068566944413,
+          "output_phase_uniformity": 0.2849669950328081
+        },
+        {
+          "seed": 1,
+          "accuracy": 0.7229999899864197,
+          "input_phase_uniformity": 0.053511819675715944,
+          "output_phase_uniformity": 0.245975636413564
+        },
+        {
+          "seed": 2,
+          "accuracy": 0.6299999952316284,
+          "input_phase_uniformity": -0.557040270106044,
+          "output_phase_uniformity": -0.5156669114728796
+        },
+        {
+          "seed": 3,
+          "accuracy": 0.6660000085830688,
+          "input_phase_uniformity": -0.5992530210427076,
+          "output_phase_uniformity": -0.5457555359094612
+        },
+        {
+          "seed": 4,
+          "accuracy": 0.7059999704360962,
+          "input_phase_uniformity": -0.01929930599621099,
+          "output_phase_uniformity": 0.23237751240191107
+        },
+        {
+          "seed": 5,
+          "accuracy": 0.6639999747276306,
+          "input_phase_uniformity": 0.20235295893429361,
+          "output_phase_uniformity": 0.3212305895409606
+        },
+        {
+          "seed": 6,
+          "accuracy": 0.7440000176429749,
+          "input_phase_uniformity": 0.2382548759531462,
+          "output_phase_uniformity": 0.29216099612623636
+        },
+        {
+          "seed": 7,
+          "accuracy": 0.6940000057220459,
+          "input_phase_uniformity": -0.3274937104783342,
+          "output_phase_uniformity": -0.2760910538499046
+        },
+        {
+          "seed": 8,
+          "accuracy": 0.7139999866485596,
+          "input_phase_uniformity": 0.21827177726887914,
+          "output_phase_uniformity": 0.30098458074870427
+        },
+        {
+          "seed": 9,
+          "accuracy": 0.7480000257492065,
+          "input_phase_uniformity": 0.08981689335351561,
+          "output_phase_uniformity": 0.36904115007795524
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "k": 4,
+  "n_seeds": 10,
+  "epochs": 150,
+  "total_pairs": 16,
+  "train_size": 12,
+  "test_size": 4,
+  "mean_train_accuracy": 1.0,
+  "mean_test_accuracy": 1.0,
+  "chance_level": 0.25,
+  "n_passed": 10,
+  "pass_rate": 1.0,
+  "results": [
+    {
+      "seed": 0,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 1,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 2,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 3,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 4,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 5,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 6,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 7,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 8,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    },
+    {
+      "seed": 9,
+      "train_accuracy": 1.0,
+      "test_accuracy": 1.0,
+      "train_size": 12,
+      "test_size": 4,
+      "z4_passes": true
+    }
+  ]
+}
