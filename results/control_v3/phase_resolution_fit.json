@@ -4,6 +4,7 @@
   "previous_normalization_bug": "k=5,7,11 used d/k; k=13,17 used 2d/k - now fixed",
   "k11_retrained": "step8_k11_retrain.py - original k=11 (theta=0.141) was undertrained. Fresh training gives theta=0.255 matching k=13 trend",
   "k5_k7_retrained": "step9_k5_k7_retrain.py - all 5 points within 95% CI band - consistent power law",
+  "k23_k29_results": "step10_k23_k29.py - UNDERTRAINED! theta/k=0.020 vs predicted 0.026. Loss plateaued. Regime 3 confirmed - need more epochs for large k",
   "k_results": {
     "5": {
       "theta": 0.0893,
