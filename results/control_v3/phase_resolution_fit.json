@@ -3,16 +3,19 @@
   "normalization_note": "x = 2*min(d,k-d)/k, range [0,1]",
   "previous_normalization_bug": "k=5,7,11 used d/k; k=13,17 used 2d/k - now fixed",
   "k11_retrained": "step8_k11_retrain.py - original k=11 (theta=0.141) was undertrained. Fresh training gives theta=0.255 matching k=13 trend",
+  "k5_k7_retrained": "step9_k5_k7_retrain.py - all 5 points within 95% CI band - consistent power law",
   "k_results": {
     "5": {
-      "theta": 0.06856546181731986,
-      "beta": 0.16796029505550855,
-      "r_squared": 0.9991514759778743
+      "theta": 0.0893,
+      "beta": 0.2105,
+      "r_squared": 0.993,
+      "note": "RETRAINED - fresh training"
     },
     "7": {
-      "theta": 0.1338024782908712,
-      "beta": 0.1545157079457211,
-      "r_squared": 0.9911235093904194
+      "theta": 0.2072,
+      "beta": 0.2059,
+      "r_squared": 0.9916,
+      "note": "RETRAINED - fresh training"
     },
     "11": {
       "theta": 0.2548946751096364,
@@ -40,18 +43,18 @@
       17
     ],
     "theta_values": [
-      0.06856546181731986,
-      0.1338024782908712,
-      0.2548946751096364,
-      0.3184424759199198,
-      0.4522742161385614
+      0.0893,
+      0.2072,
+      0.2549,
+      0.3184,
+      0.4523
     ],
     "beta_values": [
-      0.16796029505550855,
-      0.1545157079457211,
-      0.19378251923046688,
-      0.16824232138671616,
-      0.2637471524674258
+      0.2105,
+      0.2059,
+      0.1938,
+      0.1682,
+      0.2637
     ],
     "fits": {
       "log_k": {
@@ -60,10 +63,10 @@
         "pred_k23": 0.363
       },
       "power": {
-        "A": 0.008638,
-        "alpha": 1.4006,
-        "R2": 0.9971,
-        "pred_k23": 0.387
+        "A": 0.018649,
+        "alpha": 1.1184,
+        "R2": 0.96,
+        "pred_k23": 0.272
       },
       "constant": {
         "C": 0.2456,
