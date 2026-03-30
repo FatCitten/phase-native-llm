@@ -1,6 +1,6 @@
 # PHASE-NATIVE LLM — HANDOFF DOCUMENT
 **Last Updated:** March 29, 2026
-**Status:** Ready for new session
+**Status:** Ready for bulletproof suite
 
 ---
 
@@ -26,11 +26,6 @@ class HolonomyChainBundle(nn.Module):
             phi = phi + inputs[:, i] * self.bit_phases[i]
         output = (1.0 - torch.cos(phi)) / 2.0
         return output
-    
-    def compute_holonomy_loss(self):
-        R_actual = torch.exp(1j * self.bit_phases)
-        R_predicted = torch.exp(1j * self.A)
-        return torch.mean(torch.abs(R_actual - R_predicted).pow(2))
 ```
 
 ### ZkBundle (for Z_k modular arithmetic)
@@ -54,105 +49,124 @@ class ZkBundle(nn.Module):
 
 ## CONFIRMED RESULTS
 
-### 1. Z_k Discovery (MAIN RESULT)
-- k=2,3,4,5,6,8: 100% accuracy
-- Network discovers exact irreducible representations of Z_k
+### 1. Scaling Law (MAIN) ⚠️
+- σ* × k ≈ 1.82 (initial approximation, INCOMPLETE)
+- **Data shows GROWTH with k:**
+  - k=3:  σ* = 0.579, σ*×k = 1.736
+  - k=5:  σ* = 0.357, σ*×k = 1.786
+  - k=7:  σ* = 0.258, σ*×k = 1.803
+  - k=11: σ* = 0.166, σ*×k = 1.823
+  - k=13: σ* = 0.145, σ*×k = 1.879
+  - k=17: σ* = 0.112, σ*×k = 1.907
+- **Empirical fit:** σ* × k = 1.944 - 0.623/k
+- **As k→∞:** approaches ~1.944 (NOT π/√3 = 1.814)
 
-### 2. Parity Scaling
-- n ≤ 48: 100% accuracy (phases → π)
-- n ≥ 56: accuracy degrades (critical region)
-- n ≥ 72: ~50% (random)
-
-### 3. Phase Transition (CRITICAL FINDING)
-- Sharp first-order transition at σ ≈ 0.07 for n=32 parity
-- **Bimodal distribution at critical point confirmed** (5/20 seeds success, 15/20 fail)
-- This is the "smoking gun" for first-order phase transition in the paper
-
-### 4. MNIST Binary Classification
-- Linear projection: 84.8% accuracy, mean phase=3.60, std=0.23
-- Binary bottleneck: 87.4% accuracy, mean phase=3.20, std=0.12
-- Binary bottleneck improves phase convergence toward π
-
-### 5. Encoder Gain (g) Measurement
-- g = mean resultant length of phase angles
-- Synthetic (n≤48): g = 1.0 (perfectly ordered)
-- Synthetic (n≥72): g = 0.0 (disordered)
-- Critical point (σ=0.07): bimodal g (either 1.0 or 0.0)
-
-### 6. Z_k Test-Time Noise (MAJOR PAPER RESULT!)
-- Train on still beam → freeze → wobble at test time
-- σ* × k ≈ 1.82 ± 0.05 (CONSTANT!)
-- k=3: σ* = 0.588, k×σ* = 1.76
-- k=5: σ* = 0.359, k×σ* = 1.80
-- k=7: σ* = 0.261, k×σ* = 1.83
-- k=11: σ* = 0.171, k×σ* = 1.89
-- **σ* ∝ 1/k CONFIRMED** - This is a major theoretical result!
-
-### 7. Data Independence
-- σ* is INDEPENDENT of training set size n!
-- Tested n = [64, 128, 256, 512, 1024, 2048]
-- σ* × k ≈ 1.81 ± 0.09 across ALL n values
-- **DATA INDEPENDENT CONFIRMED**
-
-### 8. CRT Composition (MAJOR!)
-- Train Z_k SEPARATELY, compose using Chinese Remainder Theorem
-- gcd=1 pairs: Z_3×Z_5→Z_15, Z_3×Z_7→Z_21, Z_5×Z_7→Z_35: **100% closure**
-- gcd>1 pairs: Z_2×Z_2→Z_4: **0% closure**
-- **CRT EMERGENCE CONFIRMED** - Network implements CRT!
-- CRT function was BUGGY - fixed with verified implementation
-
-### 9. Scaling Law (HIGH PRECISION)
-- k=3: σ* = 0.579, σ*×k = 1.74
-- k=5: σ* = 0.352, σ*×k = 1.76
-- k=7: σ* = 0.256, σ*×k = 1.79
-- k=11: σ* = 0.164, σ*×k = 1.81
-- Mean constant: 1.775 ± 0.028
-- Closest to π/√3 = 1.814 (1.4 std devs)
-
-### 10. Curvature Visualization
-- Curvature matrices are structured (not random)
-- Diagonal = 0 (curvature vanishes on proper loops)
-- Off-diagonal ≈ 0.5 (maximum phase separation)
-- Publication-quality visualizations generated
+### 2. CRT Composition (STRONGEST RESULT)
+- gcd=1 pairs: Z_3×Z_5→Z_15 = **100%** ✓
+- gcd>1 pairs: Z_2×Z_2→Z_4 = **0%** ✓
+- This is a PREDICTION that came true: CRT says it should fail, it fails
 
 ---
 
-## KEY EXPERIMENTS RUN
+## FAILED / DEAD END EXPERIMENTS
 
-| Experiment | Status | Key Finding |
-|------------|--------|-------------|
-| Phase transition scan (n=32-128) | DONE | n* ≈ 56-60 |
-| Fine noise sweep (σ=0-0.2) | DONE | Sharp first-order at σ=0.07 |
-| Critical point bimodality | DONE | 5/20 success, 15/20 fail |
-| MNIST classification | DONE | 87.4% with binary bottleneck |
-| Z_k test-time noise | DONE | σ* ~ 1/k CONFIRMED |
-| Data independence | DONE | DATA INDEPENDENT CONFIRMED |
-| CRT composition | DONE | **CRT EMERGENCE CONFIRMED** (verified CRT) |
-| Scaling law (high precision) | DONE | σ*×k = 1.775 ± 0.028 |
-| Curvature visualization | DONE | Publication-quality plots |
+### Holonomy Closure (Experiment 4)
+- **FAILED CONTROL**: untrained network achieves holonomy = 1.0
+- Measurement is vacuous - tests associativity of addition, always true
+- Divergence numbers (0.569 at σ=0.35) are ALSO invalid because they used the vacuous metric
+- The raw accuracy degradation curve is real data - keep but don't cite the holonomy column
+
+### Curvature Q Metric
+- Always Q = 2/k by construction - not a result
+- Relabeled as DEAD END
 
 ---
 
-## THE NEXT EXPERIMENTS (PENDING)
+## THE BULLETPROOF SUITE (PENDING)
 
-### Experiment 3: Curvature Phase Transition
-- For k=7, train at σ = [0.1, 0.2, 0.26, 0.28, 0.30, 0.32, 0.34, 0.4, 0.5]
-- Compute Q = mean(|off-diagonal|) - mean(|diagonal|)
-- Plot Q vs σ - expect sharp drop at σ* ≈ 0.26
+### EXP 1: σ* × k = 1.82 ✓ DONE
+- Status: REAL
+- Closes: baseline law exists
 
-### Experiment 4: Holonomy vs Accuracy Divergence
-- k=11, σ in [0.0, 0.35]
-- Measure BOTH classification accuracy AND holonomy closure
-- Find where they diverge
+### EXP 2: CRT Composition ✓ DONE  
+- Status: REAL
+- Closes: hatch 1 (not lookup table)
 
-### Experiment 5: MNIST Connection
-- Add phase noise to MNIST network
-- Find σ*_MNIST where accuracy < 80%
-- Predict: σ*_MNIST ≈ 1.82/10 = 0.182
+### EXP NEW-A: Phase Convergence Across Seeds
+- **Method**: Train k=7 with 20 random seeds. Measure variance of phase spacing. Compare to 2π/k prediction.
+- **Expected**: All seeds converge to 2πj/k ± small offset
+- **Closes**: hatch 2 (phases are meaningful, not arbitrary)
 
-### Experiment 6: Seed Stability Audit
-- Re-run key results with 50 seeds
-- Report mean, std, histograms
+### EXP NEW-B: Failure Case Z_4 ≠ Z_2×Z_2
+- **Method**: Already done - Z_2×Z_2 → Z_4 = 0% closure
+- **Status**: Should reconfirm with fresh run
+- **Closes**: hatch 4 (CRT is real, not artifact)
+
+### EXP NEW-C: Non-Group Control (MAX mod k)
+- **Method**: Train on max(a,b) mod k (no group structure). Measure phase uniformity.
+- **Expected**: Phases should be LOW/random (no geometric emergence)
+- **Closes**: hatch 5 (structure is group-specific)
+
+### EXP NEW-D: Identify the Constant ⚠️
+
+**⚠️ TWO HYPOTHESES TO TEST:**
+
+**H1:** σ*×k = constant
+- Candidate: π/√3 ≈ 1.814
+- Current data: 1.8224 ± 0.0572
+- Delta = 0.0086 < σ (cannot reject, cannot confirm)
+
+**H2:** σ*×k = A - B/k (convergent series)
+- Empirical fit: A ≈ 1.944, B ≈ 0.623
+- Asymptote ≈ 1.944 (ruled out if H1 is true)
+- **This is distinguishable from H1 with k up to 29**
+
+**Required:**
+- Run k = 3, 5, 7, 11, 13, 17, 19, 23, 29
+- High-precision σ* measurements (100+ seeds each)
+- Fit both models, compare residuals
+
+**If H2 wins:** The "law" is σ* = A/k - B/k²
+- Asymptote ~1.944, NOT π/√3
+- Paper title changes: "π/(k√3)" → "A/k - B/k²"
+
+---
+
+## PRIORITY ORDER
+
+1. **NEW-B first** - Reconfirm Z_4 failure (strongest single experiment)
+2. **NEW-A next** - Phase convergence (quick, bolsters representation claim)
+3. **NEW-C next** - Non-group control (most important for reviewers)
+4. **NEW-D last** - Identify constant (needs tighter measurements first)
+
+---
+
+## HYPERPARAMETERS
+
+- Learning rate: 0.1
+- Optimizer: Adam
+- Epochs: 150-200
+- n_samples: 1000-2000
+
+---
+
+## FILE STRUCTURE
+
+```
+phase-native-llm/
+├── HANDOFF.md
+├── experiment_crt_verified.py       # CRT composition (DONE)
+├── experiment_1_scaling_law.py      # sigma* x k (DONE)
+├── experiment_3_input_structure.py # Training noise structure (DONE)
+├── experiment_4_holonomy_accuracy.py # Divergence (done but holonomy broken)
+├── experiment_3_input_structure.json
+├── experiment_4_holonomy_accuracy.json
+├── experiment_crt_verified.json
+└── [NEW EXPERIMENTS TO CREATE]
+    ├── experiment_new_a_seed_convergence.py
+    ├── experiment_new_c_nongroup_control.py
+    └── experiment_new_d_identify_constant.py
+```
 
 ---
 
@@ -172,75 +186,39 @@ def crt(a1, m1, a2, m2):
 
 ---
 
-## HYPERPARAMETERS
+## KEY EQUATIONS
 
-### Parity Experiments
-- Learning rate: 0.1
-- Optimizer: Adam
-- Epochs: 200-400
-- λ schedule: 0 → 0.1 → 0.3 → 0.1
-
-### MNIST
-- Learning rate: 0.01
-- Epochs: 200
-- Samples: 2000 train, 500 test
+- σ* × k ≈ 1.8224 (empirical, GROWING with k)
+- σ* × k = 1.944 - 0.623/k (empirical fit, asymptote ~1.944)
+- π/√3 ≈ 1.814 (ruled out as asymptote if H2 confirmed)
+- Q = 2/k (curvature - DEAD END, by construction)
+- Phase uniformity = 1 - std(diffs)/mean(diffs)
 
 ---
 
-## FILE STRUCTURE
+## RELATED WORK
 
-```
-PHASE-NATIVE-LLM/
-├── HANDOFF.md                      ← READ THIS FIRST
-├── PHASE-NATIVE-CONTEXT.txt       ← Original theory
-├── minimal_bundle.py               ← First proof of concept
-├── scale_test.py                   ← Parity scaling
-├── measure_kappa.py                ← κ measurement
-├── phase_transition_scan.py        ← n=32-128 scan
-├── refined_transition.py            ← Multi-seed analysis
-├── mnist_experiment.py             ← MNIST classification
-├── experiment_4b_noise.py          ← Noise injection
-├── experiment_4a_binary_bottleneck.py
-├── critical_point_analysis.py       ← Bimodality confirmation
-├── measure_g.py                    ← Encoder gain
-├── zk_test_time_noise.py           ← σ* ~ 1/k
-├── experiment_a_data_independence.py ← DATA INDEPENDENCE
-├── experiment_b_crt.py              ← CRT COMPOSITION
-├── experiment_c_curvature.py        ← CURVATURE
-├── experiment_1_scaling_law.py      ← HIGH PRECISION σ*
-├── experiment_crt_verified.py       ← VERIFIED CRT
-├── test_crt.py                      ← CRT UNIT TESTS
-└── [visualization PNGs]
-```
+### 1. "Grokking Modular Arithmetic" (2023)
+   arxiv.org/abs/2301.02679
+   - Networks solving Z_k addition learn Fourier features. Analytic weight expressions derived.
+   - RELEVANCE: Our phase convergence (NEW-A) should reproduce their Fourier finding in phase language. If they match → same phenomenon, different frame. If they don't → something new.
 
----
+### 2. "Fourier Circuits in Neural Networks and Transformers" (Li et al., AISTATS 2025)
+   proceedings.mlr.press/v258/li25b.html
+   - Margin maximization → Fourier features for Z_k. Transformers learn "integer rotations around a circle"
+   - RELEVANCE: **THIS IS US.** They describe the same geometric algorithm we built explicitly. Our contribution: made it the architecture, not just an emergent property.
 
-## WHAT TO SAY TO CLAUDE CODE
+### 3. "Fiber Bundle Networks" (2024)
+   arxiv.org/abs/2512.01151
+   - FiberNet: classification via fiber bundle geometry.
+   - RELEVANCE: Independent convergence on same idea. Cite as parallel work. Do NOT present as derivative.
 
-```
-Read HANDOFF.md. We are continuing phase-native neural network research.
+### 4. ModuloNET (IACR 2021)
+   eprint.iacr.org/2021/1437.pdf
+   - Modular arithmetic in NNs for cryptographic masking.
+   - RELEVANCE: Demonstrates modular arithmetic is compatible with NN training. Different motivation (security, not geometry) but validates the arithmetic approach.
 
-The key findings:
-1. σ* × k ≈ 1.775 (data independent) - THE SCALING LAW
-2. CRT composition works: Z_3×Z_5→Z_15 = 100%, Z_3×Z_7→Z_21 = 100%
-3. gcd>1 fails: Z_2×Z_2→Z_4 = 0%
-4. Curvature visualization done
-5. CRT function was buggy - now fixed and verified
-
-Pending experiments:
-- Curvature phase transition (Q vs σ)
-- Holonomy vs accuracy divergence
-- MNIST with noise (predict σ* ≈ 0.182)
-- Seed stability audit (50 seeds)
-```
-
----
-
-## LITERATURE SEARCH (DO AFTER EXPERIMENTS)
-
-Search: "Fourier neural networks", "cyclic group equivariant networks", "complex-valued neural networks"
-
-Purpose: Know what others have done before writing paper.
+**KEY FRAMING**: Li et al. (2025) describe our architecture as an emergent phenomenon in standard transformers. Our contribution: made it explicit and controllable. That framing survives peer review.
 
 ---
 
@@ -253,4 +231,4 @@ Purpose: Know what others have done before writing paper.
 
 ---
 
-**END OF HANDOVER**
+**END OF HANDOFF**
