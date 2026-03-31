@@ -39,7 +39,8 @@ for k in K_VALUES:
             before_keys = [k for k in align_dict.keys() if k <= r2_before_step]
             r2_before = align_dict[max(before_keys)] if before_keys else align_dict.get(0, 0)
         
-        r2_at_grok = align_dict.get(grok_step, align_dict.get(steps[-1], 0))
+        at_or_before = [k for k in align_dict.keys() if k <= grok_step]
+        r2_at_grok = align_dict[max(at_or_before)] if at_or_before else 0.0
         
         print(f"  {k:2d}  | {seed:3d}  |    {grok_step:5d}   |   {r2_before:.3f}   |   {r2_at_grok:.3f}")
         

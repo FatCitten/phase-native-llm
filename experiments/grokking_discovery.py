@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 import json
 import numpy as np
@@ -108,7 +109,8 @@ def run_model_a(k, data, seed):
             history['train_acc'].append(train_acc)
             history['test_acc'].append(test_acc)
             history['train_loss'].append(loss.item())
-            history['test_loss'].append(test_logits.argmax(dim=-1).float().mean().item())
+            test_loss_val = F.cross_entropy(test_logits, target_test).item()
+            history['test_loss'].append(test_loss_val)
             
             if step % ALIGNMENT_EVERY == 0:
                 alignment = compute_fourier_alignment(model, k)
