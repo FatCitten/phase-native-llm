@@ -176,9 +176,9 @@
     }
   },
   "deficit_power_law": {
-    "gamma": -0.04471769853921708,
-    "r2": 0.995994057241461,
-    "verdict": "SUB-LINEAR DEFICIT GROWTH"
+    "gamma": 2.261712085284772,
+    "r2": 0.9337785819255041,
+    "verdict": "SUPER-LINEAR DEFICIT GROWTH"
   },
   "equatorial_confusion": [
     {
@@ -306,5 +306,80 @@
     "verdict": "OUTLIER"
   },
   "winner": "power_law",
-  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48 (k=21 is OUTLIER). All Regime III points fall below the antipodal bound, with k=29 achieving only 71.4% of theoretical maximum (28.5% deficit)."
+  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48 (k=21 is OUTLIER). All Regime III points fall below the antipodal bound, with k=29 achieving only 71.4% of theoretical maximum (28.5% deficit).",
+  "phase_spacing_analysis": {
+    "data": [
+      {
+        "k": 5,
+        "ceiling_acc": 1.0,
+        "regime": 2,
+        "min_gap_ratio": 0.4887796938419342,
+        "cv": 0.4568798840045929
+      },
+      {
+        "k": 7,
+        "ceiling_acc": 1.0,
+        "regime": 2,
+        "min_gap_ratio": 0.42624232172966003,
+        "cv": 0.562605082988739
+      },
+      {
+        "k": 11,
+        "ceiling_acc": 1.0,
+        "regime": 2,
+        "min_gap_ratio": 0.35378071665763855,
+        "cv": 0.5814175605773926
+      },
+      {
+        "k": 19,
+        "ceiling_acc": 0.842,
+        "regime": 3,
+        "min_gap_ratio": 0.07425501197576523,
+        "cv": 0.8997286558151245
+      },
+      {
+        "k": 21,
+        "ceiling_acc": 0.952,
+        "regime": 3,
+        "min_gap_ratio": 0.0009912881068885326,
+        "cv": 0.78600013256073
+      },
+      {
+        "k": 23,
+        "ceiling_acc": 0.826,
+        "regime": 3,
+        "min_gap_ratio": 0.04389914125204086,
+        "cv": 0.8813466429710388
+      },
+      {
+        "k": 29,
+        "ceiling_acc": 0.69,
+        "regime": 3,
+        "min_gap_ratio": 0.004885862115770578,
+        "cv": 1.340606689453125
+      }
+    ],
+    "pearson_k_vs_min_ratio": -0.9447,
+    "pearson_k_vs_cv": 0.9152,
+    "pearson_min_gap_ratio_vs_ceiling_acc": 0.7568,
+    "pearson_min_gap_ratio_vs_ceiling_acc_no_k21": 0.928,
+    "linear_model": {
+      "slope": 0.4215,
+      "intercept": 0.8176,
+      "r_squared": 0.5727,
+      "pred_at_zero": 0.8176,
+      "pred_at_one": 1.239,
+      "k21_actual": 0.952,
+      "k21_predicted": 0.818,
+      "k21_residual": 0.134,
+      "without_k21": {
+        "slope": 0.5559,
+        "intercept": 0.7641,
+        "r_squared": 0.8612,
+        "pred_at_zero": 0.7641,
+        "pred_at_one": 1.32
+      }
+    },
+    "conclusion": "SMOKING GUN: Phase spacing collapse explains ceiling accuracy loss. Without outlier k=21, r=0.928."
+  }
 }

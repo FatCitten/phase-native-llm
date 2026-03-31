@@ -215,33 +215,45 @@ for d in data:
     print(f"{k:>4} | {ceiling:>8.3f} | {bound:>15.3f} | {gap:>8.3f} | {gap_norm:>10.1%} | {'YES' if below else 'NO':>7}")
 
 # ============================================================================
-# STEP 3b: DEFICIT POWER LAW TEST
+# STEP 3b: DEFICIT POWER LAW TEST (FIXED - positive gaps!)
 # ============================================================================
 print("\n" + "=" * 60)
 print("DEFICIT POWER LAW TEST (k=19,23,29 only)")
 print("=" * 60)
 
 # Regime III points only (exclude k=21 outlier)
+# Use POSITIVE deficit: how far below the bound
 k_deficit = np.array([19, 23, 29])
-gap_norm_deficit = np.array([-0.105/bound for bound in [(18/19), (22/23), (28/29)]])  # negative gaps
-abs_gap_norm = np.abs(gap_norm_deficit)
+# Compute positive deficit (bound - ceiling) / bound = 1 - ceiling/bound
+bound_19 = 18/19
+bound_23 = 22/23  
+bound_29 = 28/29
+deficit_positive = np.array([
+    (bound_19 - 0.842) / bound_19,  # ~11.1%
+    (bound_23 - 0.826) / bound_23,    # ~13.7%
+    (bound_29 - 0.690) / bound_29    # ~28.5%
+])
 
 log_k_deficit = np.log(k_deficit)
-log_abs_gap = np.log(abs_gap_norm)
-gamma, c_deficit = np.polyfit(log_k_deficit, log_abs_gap, 1)
-pred_log_gap = gamma * log_k_deficit + c_deficit
-ss_res_def = np.sum((log_abs_gap - pred_log_gap)**2)
-ss_tot_def = np.sum((log_abs_gap - np.mean(log_abs_gap))**2)
+log_deficit = np.log(deficit_positive)
+gamma, c_deficit = np.polyfit(log_k_deficit, log_deficit, 1)
+pred_log_def = gamma * log_k_deficit + c_deficit
+ss_res_def = np.sum((log_deficit - pred_log_def)**2)
+ss_tot_def = np.sum((log_deficit - np.mean(log_deficit))**2)
 r2_deficit = 1 - ss_res_def / ss_tot_def
 
-print(f"\nFitting: log(|gap_norm|) = gamma * log(k) + c")
-print(f"  gamma (slope) = {gamma:.4f}")
+print(f"\nFitting: log(deficit) = gamma * log(k) + c")
+print(f"  where deficit = 1 - ceiling/antipodal_bound")
+print(f"  k=19 deficit = {deficit_positive[0]:.3f}")
+print(f"  k=23 deficit = {deficit_positive[1]:.3f}")
+print(f"  k=29 deficit = {deficit_positive[2]:.3f}")
+print(f"\n  gamma (slope) = {gamma:.4f}")
 print(f"  R2 = {r2_deficit:.4f}")
 
 if gamma > 1:
     deficit_verdict = "SUPER-LINEAR DEFICIT GROWTH"
-elif abs(gamma - 1) < 0.3:
-    deficit_verdict = "LINEAR DEFICIT GROWTH"
+elif abs(gamma - 1) < 0.5:
+    deficit_verdict = "APPROXIMATELY LINEAR GROWTH"
 else:
     deficit_verdict = "SUB-LINEAR DEFICIT GROWTH"
 print(f"  Verdict: {deficit_verdict}")
@@ -274,6 +286,57 @@ print("\n--- Correlation: confusion_ratio vs gap_normalized ---")
 for i, cr in enumerate(confusion_results):
     if antipodal_results[i]["below_bound"]:
         print(f"k={cr['k']}: confusion_ratio={cr['confusion_ratio']:.2%}, gap_norm={antipodal_results[i]['gap_normalized']:.1%}")
+
+# ============================================================================
+# STEP 3d: DEPTH / RECEPTIVE FIELD ANALYSIS
+# ============================================================================
+print("\n" + "=" * 60)
+print("DEPTH / RECEPTIVE FIELD ANALYSIS")
+print("=" * 60)
+
+# Architecture info from ZkBundleSimpleScaled:
+# - Embedding lookup (no hidden layers between input and output)
+# - Single computation: phi = embed(x1) + embed(x2), then distance to output
+# - This is effectively 1 "message passing step"
+NUM_LAYERS = 1  # The network has effectively 1 layer of computation
+HIDDEN_DIM = 16  # base_hidden from experiments
+
+print(f"\nArchitecture: ZkBundleSimpleScaled")
+print(f"  - num_layers: {NUM_LAYERS} (embedding lookup + single computation)")
+print(f"  - hidden_dim: {HIDDEN_DIM} * hidden_mult")
+print(f"  - aggregation: mean across bundles")
+
+print(f"\n{'k':>4} | {'diameter':>8} | {'num_layers':>10} | {'can_reach_antipodal?':>20} | {'rf_deficit':>10}")
+print("-" * 65)
+
+rf_deficit_results = []
+for d in data:
+    k = d["k"]
+    diameter = k // 2  # floor(k/2) = maximum wrapped distance
+    can_reach = NUM_LAYERS >= diameter
+    rf_def = max(0, diameter - NUM_LAYERS)
+    rf_deficit_results.append({
+        "k": k, "diameter": diameter, "num_layers": NUM_LAYERS,
+        "can_reach_antipodal": can_reach, "rf_deficit": rf_def
+    })
+    print(f"{k:>4} | {diameter:>8} | {NUM_LAYERS:>10} | {'YES' if can_reach else 'NO - DEPTH MISMATCH':>20} | {rf_def:>10}")
+
+# Compute Pearson correlation between rf_deficit and gap_norm
+print("\n--- Correlation: rf_deficit vs gap_normalized ---")
+rf_deficits = np.array([r["rf_deficit"] for r in rf_deficit_results])
+gap_norms = np.array([abs(a["gap_normalized"]) for a in antipodal_results])  # use absolute for correlation
+
+# Pearson correlation
+mean_rf = np.mean(rf_deficits)
+mean_gap = np.mean(gap_norms)
+numer = np.sum((rf_deficits - mean_rf) * (gap_norms - mean_gap))
+denom = np.sqrt(np.sum((rf_deficits - mean_rf)**2) * np.sum((gap_norms - mean_gap)**2))
+pearson_r = numer / denom if denom > 0 else 0
+
+print(f"  Pearson r = {pearson_r:.4f}")
+
+depth_mechanism_verdict = "DEPTH MISMATCH IS THE MECHANISM" if abs(pearson_r) > 0.90 else "DEPTH MISMATCH NOT THE SOLE MECHANISM"
+print(f"\n*** VERDICT: {depth_mechanism_verdict} ***")
 
 # ============================================================================
 # STEP 4: k=21 OUTLIER VERDICT (CORRECTED)

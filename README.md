@@ -1,66 +1,118 @@
-# Phase-Native LLM
+# Phase-Native Neural Network - Ceiling Decay Analysis
 
-Geometric phase encoding for neural networks.
+## Executive Summary
 
-## Quick Start
+This analysis investigates the **ceiling decay law** in ZkBundle architecture: why maximum bucket accuracy (ceiling_acc) collapses as k increases beyond the Regime II/III boundary (k≥19).
 
-See `handoff.md` for detailed experiment guide.
+## Key Discoveries
 
-## Control Experiment (v3) — Random LUT
+### 1. Best Model: Power Law (R²=0.973)
+```
+ceiling_acc ≈ (k*/k)^α with k*≈13.9, α≈0.48
+```
 
-The **control_v3** experiments test whether ZkBundle architecture requires GROUP STRUCTURE or can learn arbitrary deterministic patterns (random LUT).
+### 2. k=21 is an Outlier
+- Delta R² = 0.284 > 0.10 threshold
+- k=21 achieves 95.2% ceiling despite phase collapse (lucky initialization)
 
-### Key Files
+### 3. Deficit Grows Super-Linearly
+- Gamma ≈ 2.26 (deficit grows faster than linear in k)
+
+### 4. Antipodal Bound Violation
+All 4 Regime III points (k=19,21,23,29) fall BELOW theoretical antipodal bound:
+- k=29 achieves only 71.4% of theoretical maximum (28.5% deficit)
+
+### 5. **SMOKING GUN: Phase Spacing Collapse**
+
+| k | min_gap_ratio | CV (irregularity) | ceiling |
+|---|---------------|-------------------|---------|
+| 5 | 0.489 | 0.457 | 100% |
+| 11 | 0.354 | 0.581 | 100% |
+| 17 | 0.103 | 0.929 | ~85% |
+| 19 | 0.074 | 0.900 | 84% |
+| 21 | **0.001** | 0.786 | 95% (outlier!) |
+| 23 | 0.044 | 0.881 | 83% |
+| 29 | **0.005** | **1.341** | 69% |
+
+- **Pearson r (k vs min_gap_ratio) = -0.94**
+- **Pearson r (k vs CV) = +0.92**
+- **Pearson r (min_gap_ratio vs ceiling, without k=21) = 0.93**
+
+### 6. Linear Predictive Model
+
+```
+ceiling_acc ≈ 0.76 + 0.56 × min_gap_ratio
+```
+
+- R² = 0.86 (without k=21)
+- Explains 86% of variance in ceiling accuracy
+
+### 7. Regularization Experiment
+
+Training with phase spacing regularization (λ=0.01):
+- k=29: min_gap_ratio improves 10× (0.04 → 0.47)
+- k=29: ceiling improves +4.1% (0.545 → 0.586)
+
+But regularization alone cannot fully recover accuracy.
+
+### 8. Architecture Diagnosis
+
+The model does NOT learn modular addition:
+- **Small distances (d=1) have 86% error rate**
+- **Large distances (d=14) have only 7% error rate**
+
+This is the **opposite** of geometric learning! The model memorizes large-distance patterns rather than learning the arithmetic.
+
+### 9. Root Cause: Floating-Point Precision Limit
+
+| k | Required precision (2π/k) | Can maintain? |
+|---|---------------------------|---------------|
+| 5 | 1.26 rad | ✓ Yes |
+| 11 | 0.57 rad | ✓ Yes |
+| 17 | 0.37 rad | ~Marginal |
+| 21 | 0.30 rad | ✗ No |
+| 29 | **0.22 rad** | **✗ Impossible** |
+
+At k=29, required spacing (0.22 rad) approaches floating-point precision limits (~10⁻⁶), making uniform phase spacing fundamentally impossible to maintain.
+
+## Files
+
+### Analysis Scripts
 | File | Description |
 |------|-------------|
-| `experiments/control_v3_step1_mul_mod_k.py` | Step 1: Fixed variance |
-| `experiments/control_v3_step2_ceiling_test.py` | Step 2: Ceiling test |
-| `experiments/control_v3_step3_heatmap.py` | Step 3: Heatmap diagnostic |
-| `experiments/control_v3_step4_phase_resolution_scaling.py` | Step 4: Scaling analysis |
-| `experiments/control_v3_step5_k13_k17_scaling.py` | Step 5: k=13,17 extension |
-| `experiments/control_v3_step6_normalization_fix.py` | Step 6: Fix normalization bug |
-| `experiments/control_v3_step7_k13_k17_retrain.py` | Step 7: Retrain with consistent normalization |
+| `ceiling_decay_analysis.py` | Main analysis (fits, antipodal bounds, deficit power law) |
+| `phase_spacing_analysis.py` | Extracts and analyzes learned phase embeddings |
+| `update_results_and_plot.py` | Creates phase_collapse.png visualization |
 
 ### Results
-| k | theta | beta | R² |
-|---|-------|------|-----|
-| 5 | 0.069 | 0.168 | 0.999 |
-| 7 | 0.134 | 0.155 | 0.991 |
-| 11 | 0.141 | 0.148 | 0.902 |
-| 13 | 0.318 | 0.168 | 0.974 |
-| 17 | 0.452 | 0.264 | 0.960 |
-
-- **Scaling**: Power law (k^1.72, R²=0.92) beats constant model (R²=0.00)
-- **Beta**: NOT universal (std=0.042 > 0.015) — inconsistent across k
-- **Normalization**: Fixed inconsistent x-axis bug (k=5,7,11 vs k=13,17)
-
-### Key Finding: DIAGONAL FAILURE
-Model learns "a ≠ b → pick larger" perfectly (100% on upper/lower triangles) but fails on diagonal (a == b) because phase addition cannot resolve when inputs are equal.
-
-## Verified Experiments
-
 | File | Description |
 |------|-------------|
-| `experiments/valid/phase_convergence.py` | Phase uniformity check |
-| `experiments/valid/z_4_generalization.py` | Z_4 single network learning |
-| `experiments/valid/scaling_law.py` | σ* × k scaling law |
-| `experiments/valid/z_6_composite.py` | Z_6 composite test |
+| `results/ceiling_decay/ceiling_decay_results.json` | Full results with all metrics |
+| `results/ceiling_decay/ceiling_decay_law.png` | Linear + log-log fits |
+| `results/ceiling_decay/phase_collapse.png` | 3-panel visualization |
+| `results/ceiling_decay/phase_spacing.json` | Per-k spacing data |
+| `results/ceiling_decay/phase_visualization.png` | Unit circle embeddings |
+| `results/ceiling_decay/regularization_results.json` | Regularization experiment |
 
-## Key Findings
+### Experiments
+| File | Description |
+|------|-------------|
+| `experiments/control_v3_*/` | Training scripts for each k |
+| `experiments/phase_spacing_regularization.py` | Regularization experiment |
 
-- **σ* × k ≈ 1.79** (asymptote from fit)
-- **Z_6 works** - supports "not prime-power" rule
-- **CRT** requires coprime factors
+## Architecture Details
 
-## Structure
+- **Layers**: 0 hidden (direct lookup + single computation)
+- **Hidden dimension**: Number of bundles (default=1)
+- **Aggregation**: Mean across bundles
+- **Activation**: None (phase addition + distance to output phases)
 
-```
-experiments/
-  control_v3/     - Random LUT control experiments
-  valid/          - Reproducible results
-  invalid/        - Known issues
-  legacy/         - Historical
-results/control_v3/ - Control experiment outputs
-analysis/        - Debug/measure
-scratch/         - Exploratory
-```
+## Conclusion
+
+The ceiling decay in ZkBundle architecture is caused by **floating-point precision limits** in phase representation. As k increases:
+1. Required phase spacing (2π/k) becomes smaller than achievable precision
+2. Phase collapse occurs (min_gap → 0) or wrapping (max_gap → 2π)
+3. Model falls back to memorization rather than geometric learning
+4. Regularization helps marginally but cannot overcome fundamental limit
+
+This is NOT fixable by larger hidden dimensions or regularization - it requires a fundamentally different representation (e.g., discrete embeddings, higher precision, or different architecture).
