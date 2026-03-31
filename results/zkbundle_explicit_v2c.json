@@ -1,0 +1,14 @@
+{
+  "k11": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
+  },
+  "k17": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
+  },
+  "k23": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
+  }
+}
