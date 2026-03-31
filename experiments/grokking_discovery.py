@@ -39,13 +39,20 @@ class FlatTransformer(nn.Module):
         return self.output(x[:, 0, :])
 
 def compute_fourier_alignment(model, k):
-    E = model.embedding.weight.detach()
+    E = model.embedding.weight.detach()          # (k, d_model)
     c = torch.arange(k, device=DEVICE).float()
-    F = torch.stack([torch.cos(2 * math.pi * c / k), torch.sin(2 * math.pi * c / k)], dim=1)
-    W = torch.linalg.lstsq(E, F).solution
-    F_pred = E @ W
-    ss_res = ((F - F_pred) ** 2).sum()
-    ss_tot = ((F - F.mean(0)) ** 2).sum()
+    F = torch.stack([
+        torch.cos(2 * math.pi * c / k),
+        torch.sin(2 * math.pi * c / k)
+    ], dim=1)                                    # (k, 2)
+    
+    # Project E onto Fourier subspace: F → E
+    # F is (k,2), find W: (2, d_model) such that F@W ≈ E
+    W = torch.linalg.lstsq(F, E).solution        # (2, d_model)
+    E_pred = F @ W                               # (k, d_model)
+    
+    ss_res = ((E - E_pred) ** 2).sum()
+    ss_tot = ((E - E.mean(0)) ** 2).sum()
     return (1 - ss_res / ss_tot).item()
 
 def make_data(k, train_ratio=0.8):
