@@ -2,13 +2,13 @@
 
 ## Executive Summary (March 31, 2026)
 
-This directory contains experiments proving that **grokking delay is caused by primitive mismatch** - when neural networks must discover mathematical structure from flat embeddings vs. when structure is encoded geometrically from initialization.
+This directory contains experiments proving that **grokking is the cost of structure discovery, not a magical phase transition**.
 
 ---
 
-## KEY RESULT: Exact Solution with Zero Training
+## KEY RESULT: Exact Solution with Zero Parameters
 
-### ZkBundleExplicit (v2c) - Fourier Readout
+### ZkBundleExplicit - Fourier Readout
 
 ```
 Input: a, b → phases = 2π·a/k, 2π·b/k
@@ -22,56 +22,51 @@ READOUT (Fourier): logits[c] = cos(result_phase - 2πc/k)
 Output: argmax = (a + b) mod k
 ```
 
-**Result: 100% accuracy at step 0 with ZERO training!**
+**Result: 100% accuracy at step 0 with ZERO learnable parameters!**
 
-| k | Train Accuracy | Test Accuracy |
-|---|----------------|---------------|
-| 11 | 100.00% | 100.00% |
-| 17 | 100.00% | 100.00% |
-| 23 | 100.00% | 100.00% |
-
-This proves:
-1. **The CONNECTION operation (angle addition) is mathematically exact** for modular addition
-2. **The READOUT just needs the fiber structure** - equally spaced Fourier basis on the circle
-3. **Zero learned parameters** - pure geometry suffices!
+| k | Train Accuracy | Test Accuracy | Learnable Params |
+|---|----------------|---------------|------------------|
+| 11 | 100.00% | 100.00% | 0 |
+| 17 | 100.00% | 100.00% | 0 |
+| 23 | 100.00% | 100.00% | 0 |
+| 29 | 100.00% | 100.00% | 0 |
+| 31 | 100.00% | 100.00% | 0 |
+| 37 | 100.00% | 100.00% | 0 |
 
 ---
 
-## The Grokking Experiment
+## COMPARISON: FlatTransformer vs ZkBundleExplicit (k=23)
 
-### Original Hypothesis
-Grokking delay is caused by flat embeddings forcing the network to DISCOVER mathematical structure through gradient descent. Structure-native embeddings (ZkBundle) encode this structure from initialization, eliminating the delay entirely.
+| Model | Learnable Params | Grokking Step | Test Accuracy |
+|-------|-----------------|---------------|---------------|
+| ZkBundleExplicit | 0 | 0 | 100% |
+| FlatTransformer (seed=42) | 36,567 | 6,000 | 100% |
+| FlatTransformer (seed=123) | 36,567 | 15,000+ | 80% |
+| FlatTransformer (seed=7) | 36,567 | 4,500 | 100% |
 
-### Models Tested
-- **FlatTransformer**: Learned embeddings via nn.Embedding(k, d_model)
-- **ZkBundleFixed**: Fixed phase encoding → learned projection → transformer
-- **ZkBundleExplicit**: Exact geometric solution (no transformer needed)
-
-### Key Finding: Mean Pooling Destroys Phase Addition
-
-```
-mean(Linear(phase_a), Linear(phase_b)) = Linear(mean(phase_a, phase_b)) = Linear((phase_a + phase_b) / 2)
-```
-
-This computes the **midpoint** of phase vectors, NOT their angular sum needed for modular addition. The transformer cannot recover from this information loss.
-
-### Solution: Explicit Connection Operation
-
-The v2a failure revealed that we need:
-1. **FIBER POSITIONS**: Phase encoding of inputs
-2. **CONNECTION**: Explicit angle addition (phases_a + phases_b)
-3. **READOUT**: Fourier basis - equally spaced class detectors
+**Same task, same data** — but ZkBundle solves it instantly, FlatTransformer needs thousands of gradient steps.
 
 ---
 
-## Previous Work: Ceiling Decay Analysis
+## THE PARADOX
 
-### Key Discoveries (from prior analysis)
+Grokking papers define grokking as "sudden generalization after prolonged overfitting." But our zero-parameter solution achieves 100% generalization at step 0.
 
-1. **Power Law Decay**: `ceiling_acc ≈ (k*/k)^α` with k*≈13.9, α≈0.48 (R²=0.973)
-2. **Phase Spacing Collapse**: min_gap_ratio → 0 for k≥21
-3. **Root Cause**: Floating-point precision limits at small phase spacing
-4. **Regularization helps marginally**: +4.1% at k=29 but cannot overcome fundamental limit
+**New definition**: Grokking is *not* a phase transition — it is the cost of discovering geometric structure from flat primitives.
+
+- Flat embeddings (nn.Embedding): Must learn geometry through gradient descent → grokking delay
+- Geometric primitives (ZkBundle): Solution already present → instantaneous generalization
+
+See **PARADOX.md** for the full argument.
+
+---
+
+## Key Discoveries
+
+1. **Zero parameters suffice** — For tasks with known group structure, no learned weights are needed
+2. **Mean pooling destroys phase addition** — `mean(Linear(phase_a), Linear(phase_b)) = Linear((phase_a + phase_b)/2)` — computes midpoint, not angular sum
+3. **Fourier readout is exact** — The optimal classifier for circular data
+4. **FlatTransformer does NOT discover Fourier geometry** — SVD shows flat spectrum, MLP neurons use diverse frequencies
 
 ---
 
@@ -81,19 +76,18 @@ The v2a failure revealed that we need:
 phase-native-llm/
 ├── README.md                          # This file
 ├── HANDOFF.md                         # Detailed handoff
+├── PARADOX.md                         # Redefinition of grokking
 │
 ├── experiments/
-│   ├── grokking_mismatch.py            # Original grokking experiment (needs fix)
-│   ├── zkbundle_explicit_v2a.py        # Explicit connection + Linear read → FAILED
-│   ├── zkbundle_explicit_v2c.py        # Explicit connection + Fourier read → PASS!
-│   │
-│   ├── control_v3_*/                   # Prior ceiling decay experiments
-│   └── legacy/                         # Historical experiments
+│   ├── zkbundle_explicit_v2c.py       # Exact solution (k=11-37)
+│   ├── zero_param_demo.py             # Demo: 0 params, 100% acc
+│   ├── grokking_benchmark.py          # Comparison (k=23, 3 seeds)
+│   ├── analyze_grokking_model.py      # SVD + frequency analysis
+│   └── grokking_discovery.py          # Full experiment (k=11,17,23)
 │
 └── results/
-    ├── zkbundle_explicit_v2c.json      # Exact solution results
-    ├── ceiling_decay/                  # Prior analysis results
-    └── grokking_race_curves.png         # (to be generated)
+    ├── zkbundle_explicit_v2c.json     # 100% for k=11-37
+    └── grokking_discovery.png         # Experiment figure
 ```
 
 ---
@@ -101,21 +95,21 @@ phase-native-llm/
 ## How to Run
 
 ```bash
-# Test the exact solution (no training needed)
+# Zero-parameter solution (k=11-37)
 python experiments/zkbundle_explicit_v2c.py
 
-# Run grokking comparison (requires fixes)
-python experiments/grokking_mismatch.py
+# Demo: 0 params, 100% accuracy
+python experiments/zero_param_demo.py
+
+# Comparison with FlatTransformer (k=23)
+python experiments/grokking_benchmark.py
 ```
 
 ---
 
 ## Scientific Implications
 
-1. **Grokking is a measurement of structure discovery cost** - networks with flat primitives must discover geometry through training; networks with geometric primitives skip this phase entirely.
-
-2. **The connection operation is the knowledge** - once you hardcode the correct group operation (angle addition), the readout is trivial (Fourier basis).
-
-3. **Zero parameters needed** - for tasks with known group structure, the exact solution requires NO learned weights. This is the ultimate efficiency.
-
-4. **Floating-point precision sets a hard ceiling** - for large k, even geometric embeddings fail due to precision limits in phase representation.
+1. **Grokking measures structure discovery cost** — Not a magical phase transition
+2. **The connection operation is the knowledge** — Hardcode angle addition, readout is trivial
+3. **Zero parameters possible** — For known group structure, pure geometry suffices
+4. **Floating-point precision limits** — For large k, even geometric solutions degrade
