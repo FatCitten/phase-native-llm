@@ -1,0 +1,249 @@
+{
+  "data_points": [
+    {
+      "k": 5,
+      "ceiling_acc": 1.0,
+      "N_est": 50,
+      "regime": 2
+    },
+    {
+      "k": 7,
+      "ceiling_acc": 1.0,
+      "N_est": 40,
+      "regime": 2
+    },
+    {
+      "k": 11,
+      "ceiling_acc": 1.0,
+      "N_est": 22,
+      "regime": 2
+    },
+    {
+      "k": 19,
+      "ceiling_acc": 0.842,
+      "N_est": 20,
+      "regime": 3
+    },
+    {
+      "k": 21,
+      "ceiling_acc": 0.952,
+      "N_est": 20,
+      "regime": 3
+    },
+    {
+      "k": 23,
+      "ceiling_acc": 0.826,
+      "N_est": 22,
+      "regime": 3
+    },
+    {
+      "k": 29,
+      "ceiling_acc": 0.69,
+      "N_est": 12,
+      "regime": 3
+    }
+  ],
+  "fits": {
+    "with_k21": {
+      "model_A": {
+        "params": [
+          38.74662369293281,
+          0.8774429657002863
+        ],
+        "param_names": [
+          "tau",
+          "beta"
+        ],
+        "ci_lower": [
+          -3228.692018476806,
+          -47.75176152938151
+        ],
+        "ci_upper": [
+          3306.1852658626713,
+          49.50664746078209
+        ],
+        "r2": 0.8358123394786763,
+        "rmse": 0.04454189667885918,
+        "success": true
+      },
+      "model_B": {
+        "params": [
+          19.569598665888847,
+          0.9645698048543458
+        ],
+        "param_names": [
+          "k_star",
+          "alpha"
+        ],
+        "ci_lower": [
+          -188.86943014481238,
+          -40.488423906302785
+        ],
+        "ci_upper": [
+          228.00862747659005,
+          42.417563516011484
+        ],
+        "r2": 0.6886252350828492,
+        "rmse": 0.06117547049485517,
+        "success": true
+      },
+      "model_C": {
+        "params": [
+          0.1540968755645741,
+          34.16135742563328
+        ],
+        "param_names": [
+          "gamma",
+          "k_mid"
+        ],
+        "ci_lower": [
+          -6.860375605020684,
+          -347.6603164240192
+        ],
+        "ci_upper": [
+          7.168569356149831,
+          415.9830312752858
+        ],
+        "r2": 0.8618072696000786,
+        "rmse": 0.039872105320467734,
+        "success": true
+      }
+    },
+    "without_k21": {
+      "model_A": {
+        "params": [
+          49.99999999999994,
+          0.6794256795235768
+        ],
+        "param_names": [
+          "tau",
+          "beta"
+        ],
+        "ci_lower": [
+          -5829.067310823016,
+          -44.788093808912556
+        ],
+        "ci_upper": [
+          5929.067310823016,
+          46.14694516795971
+        ],
+        "r2": 0.9504589709869617,
+        "rmse": 0.026058057169974575,
+        "success": true
+      },
+      "model_B": {
+        "params": [
+          13.940477618178319,
+          0.48422692488955726
+        ],
+        "param_names": [
+          "k_star",
+          "alpha"
+        ],
+        "ci_lower": [
+          -514.6754507205001,
+          -32.648016929497835
+        ],
+        "ci_upper": [
+          542.5564059568567,
+          33.616470779276945
+        ],
+        "r2": 0.9727835457060968,
+        "rmse": 0.0190927456424604,
+        "success": true
+      },
+      "model_C": {
+        "params": [
+          0.1276119007344643,
+          35.076706938809316
+        ],
+        "param_names": [
+          "gamma",
+          "k_mid"
+        ],
+        "ci_lower": [
+          -6.244152145358934,
+          -434.7709847318155
+        ],
+        "ci_upper": [
+          6.499375946827864,
+          504.9243986094341
+        ],
+        "r2": 0.9209608611613478,
+        "rmse": 0.029193266955843386,
+        "success": true
+      }
+    }
+  },
+  "loglog_test": {
+    "with_k21": {
+      "slope": -0.5978585019837315,
+      "r2": 0.6625921466136069,
+      "verdict": "POWER LAW WEAK (log-log)"
+    },
+    "without_k21": {
+      "slope": -0.4815351665605462,
+      "r2": 0.8620272589045657,
+      "verdict": "POWER LAW WEAK (log-log)"
+    }
+  },
+  "antipodal_check": [
+    {
+      "k": 5,
+      "ceiling_acc": 1.0,
+      "antipodal_bound": 0.8,
+      "gap": 0.19999999999999996,
+      "below_bound": false
+    },
+    {
+      "k": 7,
+      "ceiling_acc": 1.0,
+      "antipodal_bound": 0.8571428571428571,
+      "gap": 0.1428571428571429,
+      "below_bound": false
+    },
+    {
+      "k": 11,
+      "ceiling_acc": 1.0,
+      "antipodal_bound": 0.9090909090909091,
+      "gap": 0.09090909090909094,
+      "below_bound": false
+    },
+    {
+      "k": 19,
+      "ceiling_acc": 0.842,
+      "antipodal_bound": 0.9473684210526315,
+      "gap": -0.10536842105263156,
+      "below_bound": true
+    },
+    {
+      "k": 21,
+      "ceiling_acc": 0.952,
+      "antipodal_bound": 0.9523809523809523,
+      "gap": -0.0003809523809523707,
+      "below_bound": true
+    },
+    {
+      "k": 23,
+      "ceiling_acc": 0.826,
+      "antipodal_bound": 0.9565217391304348,
+      "gap": -0.13052173913043486,
+      "below_bound": true
+    },
+    {
+      "k": 29,
+      "ceiling_acc": 0.69,
+      "antipodal_bound": 0.9655172413793104,
+      "gap": -0.27551724137931044,
+      "below_bound": true
+    }
+  ],
+  "k21_outlier": {
+    "delta_r2_A": -0.11464663150828547,
+    "delta_r2_B": -0.2841583106232476,
+    "delta_r2_C": -0.0591535915612692,
+    "verdict": "NOT_OUTLIER"
+  },
+  "winner": "power_law",
+  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48"
+}
