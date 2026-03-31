@@ -10,5 +10,17 @@
   "k23": {
     "train_acc": 1.0,
     "test_acc": 1.0
+  },
+  "k29": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
+  },
+  "k31": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
+  },
+  "k37": {
+    "train_acc": 1.0,
+    "test_acc": 1.0
   }
 }

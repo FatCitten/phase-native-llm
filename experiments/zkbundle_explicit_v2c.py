@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 DEVICE = torch.device('cpu')
-K_VALUES = [11, 17, 23]
+K_VALUES = [11, 17, 23, 29, 31, 37]
 
 class ZkBundleExplicit_v2c(nn.Module):
     def __init__(self, k):
