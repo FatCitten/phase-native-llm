@@ -185,6 +185,11 @@
       "slope": -0.4815351665605462,
       "r2": 0.8620272589045657,
       "verdict": "POWER LAW WEAK (log-log)"
+    },
+    "3point_only_k19_23_29": {
+      "slope": -0.4815351665605462,
+      "r2": 0.8620272589045657,
+      "verdict": "POWER LAW WEAK (log-log)"
     }
   },
   "antipodal_check": [
@@ -193,6 +198,7 @@
       "ceiling_acc": 1.0,
       "antipodal_bound": 0.8,
       "gap": 0.19999999999999996,
+      "gap_normalized": 0.24999999999999994,
       "below_bound": false
     },
     {
@@ -200,6 +206,7 @@
       "ceiling_acc": 1.0,
       "antipodal_bound": 0.8571428571428571,
       "gap": 0.1428571428571429,
+      "gap_normalized": 0.16666666666666674,
       "below_bound": false
     },
     {
@@ -207,6 +214,7 @@
       "ceiling_acc": 1.0,
       "antipodal_bound": 0.9090909090909091,
       "gap": 0.09090909090909094,
+      "gap_normalized": 0.10000000000000003,
       "below_bound": false
     },
     {
@@ -214,6 +222,7 @@
       "ceiling_acc": 0.842,
       "antipodal_bound": 0.9473684210526315,
       "gap": -0.10536842105263156,
+      "gap_normalized": -0.11122222222222221,
       "below_bound": true
     },
     {
@@ -221,6 +230,7 @@
       "ceiling_acc": 0.952,
       "antipodal_bound": 0.9523809523809523,
       "gap": -0.0003809523809523707,
+      "gap_normalized": -0.0003999999999999893,
       "below_bound": true
     },
     {
@@ -228,6 +238,7 @@
       "ceiling_acc": 0.826,
       "antipodal_bound": 0.9565217391304348,
       "gap": -0.13052173913043486,
+      "gap_normalized": -0.13645454545454552,
       "below_bound": true
     },
     {
@@ -235,15 +246,16 @@
       "ceiling_acc": 0.69,
       "antipodal_bound": 0.9655172413793104,
       "gap": -0.27551724137931044,
+      "gap_normalized": -0.2853571428571429,
       "below_bound": true
     }
   ],
   "k21_outlier": {
-    "delta_r2_A": -0.11464663150828547,
-    "delta_r2_B": -0.2841583106232476,
-    "delta_r2_C": -0.0591535915612692,
-    "verdict": "NOT_OUTLIER"
+    "delta_r2_A": 0.11464663150828547,
+    "delta_r2_B": 0.2841583106232476,
+    "delta_r2_C": 0.0591535915612692,
+    "verdict": "OUTLIER"
   },
   "winner": "power_law",
-  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48"
+  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48 (k=21 is OUTLIER)"
 }

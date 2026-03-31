@@ -168,13 +168,34 @@ verdict_without = "POWER LAW CONFIRMED (log-log)" if r2_ll_without > 0.95 else "
 print(verdict_without)
 
 # ============================================================================
+# STEP 2b: LOG-LOG TEST WITH ONLY 3 POINTS (k=19,23,29)
+# ============================================================================
+print("\n" + "=" * 60)
+print("LOG-LOG TEST WITH 3 POINTS (k=19,23,29 ONLY)")
+print("=" * 60)
+
+k3_only = np.array([19, 23, 29])
+ceiling3_only = np.array([0.842, 0.826, 0.690])
+log_k3_only = np.log(k3_only)
+log_ceiling3_only = np.log(ceiling3_only)
+m_3pt, c_3pt = np.polyfit(log_k3_only, log_ceiling3_only, 1)
+log_pred_3pt = m_3pt * log_k3_only + c_3pt
+ss_res_ll_3pt = np.sum((log_ceiling3_only - log_pred_3pt)**2)
+ss_tot_ll_3pt = np.sum((log_ceiling3_only - np.mean(log_ceiling3_only))**2)
+r2_ll_3pt = 1 - ss_res_ll_3pt / ss_tot_ll_3pt
+
+print(f"\nk=19,23,29 only: slope={m_3pt:.4f}, R2={r2_ll_3pt:.4f}")
+verdict_3pt = "POWER LAW CONFIRMED (log-log)" if r2_ll_3pt > 0.95 else "POWER LAW WEAK (log-log)"
+print(verdict_3pt)
+
+# ============================================================================
 # STEP 3: ANTIPODAL CHECK
 # ============================================================================
 print("\n" + "=" * 60)
 print("ANTIPODAL BOUND CHECK")
 print("=" * 60)
-print(f"\n{'k':>4} | {'ceiling':>8} | {'antipodal_bound':>15} | {'gap':>8} | {'below?':>7}")
-print("-" * 55)
+print(f"\n{'k':>4} | {'ceiling':>8} | {'antipodal_bound':>15} | {'gap':>8} | {'gap_norm':>10} | {'below?':>7}")
+print("-" * 70)
 
 antipodal_results = []
 below_count = 0
@@ -183,38 +204,41 @@ for d in data:
     ceiling = d["ceiling_acc"]
     bound = (k - 1) / k
     gap = ceiling - bound
+    gap_norm = gap / bound if bound > 0 else 0
     below = gap < 0
     if below:
         below_count += 1
     antipodal_results.append({
         "k": k, "ceiling_acc": ceiling, "antipodal_bound": bound, 
-        "gap": gap, "below_bound": below
+        "gap": gap, "gap_normalized": gap_norm, "below_bound": below
     })
-    print(f"{k:>4} | {ceiling:>8.3f} | {bound:>15.3f} | {gap:>8.3f} | {'YES' if below else 'NO':>7}")
+    print(f"{k:>4} | {ceiling:>8.3f} | {bound:>15.3f} | {gap:>8.3f} | {gap_norm:>10.1%} | {'YES' if below else 'NO':>7}")
 
 # ============================================================================
-# STEP 4: k=21 OUTLIER VERDICT
+# STEP 4: k=21 OUTLIER VERDICT (CORRECTED)
 # ============================================================================
 print("\n" + "=" * 60)
-print("k=21 OUTLIER ANALYSIS")
+print("k=21 OUTLIER ANALYSIS (CORRECTED)")
 print("=" * 60)
 
-delta_r2_A = fit_A_with['r2'] - fit_A_without['r2']
-delta_r2_B = fit_B_with['r2'] - fit_B_without['r2']
-delta_r2_C = fit_C_with['r2'] - fit_C_without['r2']
+# FIXED: delta_R2 = R2_without - R2_with (not reversed!)
+delta_r2_A = fit_A_without['r2'] - fit_A_with['r2']
+delta_r2_B = fit_B_without['r2'] - fit_B_with['r2']
+delta_r2_C = fit_C_without['r2'] - fit_C_with['r2']
 
-print(f"\nDelta R2 with vs without k=21:")
+print(f"\nDelta R2 (without_k21 - with_k21):")
 print(f"  Model A: {delta_r2_A:+.4f}")
-print(f"  Model B: {delta_r2_B:+.4f}")
+print(f"  Model B (WINNER): {delta_r2_B:+.4f}")
 print(f"  Model C: {delta_r2_C:+.4f}")
 
-max_delta = max(delta_r2_A, delta_r2_B, delta_r2_C)
-k21_outlier = max_delta > 0.10
+# Focus on Model B (the winner)
+k21_outlier = delta_r2_B > 0.10
 
 if k21_outlier:
-    print(f"\nk=21 IS A GENUINE OUTLIER (max delta={max_delta:.4f} > 0.10)")
+    print(f"\n*** k=21 IS A GENUINE OUTLIER ***")
+    print(f"    Model B delta_R2 = {delta_r2_B:.4f} > 0.10")
 else:
-    print(f"\nk=21 is within noise (max delta={max_delta:.4f} <= 0.10)")
+    print(f"\nk=21 is within noise (delta={delta_r2_B:.4f} <= 0.10)")
 
 # ============================================================================
 # STEP 5: PLOT
@@ -310,7 +334,8 @@ winner_name = {"A": "exponential", "B": "power_law", "C": "logistic"}[winner]
 if winner == "A":
     headline = f"Ceiling decays as stretched exponential with tau={fit_A_without['params'][0]:.2f}, beta={fit_A_without['params'][1]:.2f}"
 elif winner == "B":
-    headline = f"Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*={fit_B_without['params'][0]:.1f}, alpha={fit_B_without['params'][1]:.2f}"
+    outlier_note = " (k=21 is OUTLIER)" if k21_outlier else ""
+    headline = f"Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*={fit_B_without['params'][0]:.1f}, alpha={fit_B_without['params'][1]:.2f}{outlier_note}"
 else:
     headline = f"Ceiling drops logistically at k_mid={fit_C_without['params'][1]:.1f}"
 
@@ -332,7 +357,9 @@ results_json = {
         "with_k21": {"slope": float(m_with), "r2": float(r2_ll_with), 
                      "verdict": verdict_with},
         "without_k21": {"slope": float(m_without), "r2": float(r2_ll_without),
-                       "verdict": verdict_without}
+                       "verdict": verdict_without},
+        "3point_only_k19_23_29": {"slope": float(m_3pt), "r2": float(r2_ll_3pt),
+                                  "verdict": verdict_3pt}
     },
     "antipodal_check": antipodal_results,
     "k21_outlier": {
