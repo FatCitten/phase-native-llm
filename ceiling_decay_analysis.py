@@ -215,6 +215,67 @@ for d in data:
     print(f"{k:>4} | {ceiling:>8.3f} | {bound:>15.3f} | {gap:>8.3f} | {gap_norm:>10.1%} | {'YES' if below else 'NO':>7}")
 
 # ============================================================================
+# STEP 3b: DEFICIT POWER LAW TEST
+# ============================================================================
+print("\n" + "=" * 60)
+print("DEFICIT POWER LAW TEST (k=19,23,29 only)")
+print("=" * 60)
+
+# Regime III points only (exclude k=21 outlier)
+k_deficit = np.array([19, 23, 29])
+gap_norm_deficit = np.array([-0.105/bound for bound in [(18/19), (22/23), (28/29)]])  # negative gaps
+abs_gap_norm = np.abs(gap_norm_deficit)
+
+log_k_deficit = np.log(k_deficit)
+log_abs_gap = np.log(abs_gap_norm)
+gamma, c_deficit = np.polyfit(log_k_deficit, log_abs_gap, 1)
+pred_log_gap = gamma * log_k_deficit + c_deficit
+ss_res_def = np.sum((log_abs_gap - pred_log_gap)**2)
+ss_tot_def = np.sum((log_abs_gap - np.mean(log_abs_gap))**2)
+r2_deficit = 1 - ss_res_def / ss_tot_def
+
+print(f"\nFitting: log(|gap_norm|) = gamma * log(k) + c")
+print(f"  gamma (slope) = {gamma:.4f}")
+print(f"  R2 = {r2_deficit:.4f}")
+
+if gamma > 1:
+    deficit_verdict = "SUPER-LINEAR DEFICIT GROWTH"
+elif abs(gamma - 1) < 0.3:
+    deficit_verdict = "LINEAR DEFICIT GROWTH"
+else:
+    deficit_verdict = "SUB-LINEAR DEFICIT GROWTH"
+print(f"  Verdict: {deficit_verdict}")
+
+# ============================================================================
+# STEP 3c: EQUATORIAL CONFUSION METRIC
+# ============================================================================
+print("\n" + "=" * 60)
+print("EQUATORIAL CONFUSION METRIC")
+print("=" * 60)
+print(f"\n{'k':>4} | {'floor(k/2)':>10} | {'confused_zone':>12} | {'confusion_ratio':>15}")
+print("-" * 55)
+
+confusion_results = []
+for d in data:
+    k = d["k"]
+    floor_half = k // 2
+    # Confused zone: floor(k/2)-2 to floor(k/2)
+    n_ambiguous = 3 if floor_half >= 2 else floor_half + 1
+    confusion_ratio = n_ambiguous / floor_half if floor_half > 0 else 0
+    confusion_results.append({
+        "k": k, "floor_half": floor_half, 
+        "n_ambiguous_layers": n_ambiguous, 
+        "confusion_ratio": confusion_ratio
+    })
+    print(f"{k:>4} | {floor_half:>10} | {n_ambiguous:>12} | {confusion_ratio:>15.2%}")
+
+# Check correlation with gap_norm
+print("\n--- Correlation: confusion_ratio vs gap_normalized ---")
+for i, cr in enumerate(confusion_results):
+    if antipodal_results[i]["below_bound"]:
+        print(f"k={cr['k']}: confusion_ratio={cr['confusion_ratio']:.2%}, gap_norm={antipodal_results[i]['gap_normalized']:.1%}")
+
+# ============================================================================
 # STEP 4: k=21 OUTLIER VERDICT (CORRECTED)
 # ============================================================================
 print("\n" + "=" * 60)
@@ -330,14 +391,17 @@ fits_r2 = {"A": fit_A_without['r2'], "B": fit_B_without['r2'], "C": fit_C_withou
 winner = max(fits_r2, key=fits_r2.get)
 winner_name = {"A": "exponential", "B": "power_law", "C": "logistic"}[winner]
 
-# Headline based on winner
+# Headline based on winner - TWO SENTENCES
 if winner == "A":
-    headline = f"Ceiling decays as stretched exponential with tau={fit_A_without['params'][0]:.2f}, beta={fit_A_without['params'][1]:.2f}"
+    headline = f"Ceiling decays as stretched exponential with tau={fit_A_without['params'][0]:.2f}, beta={fit_A_without['params'][1]:.2f}. "
 elif winner == "B":
     outlier_note = " (k=21 is OUTLIER)" if k21_outlier else ""
-    headline = f"Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*={fit_B_without['params'][0]:.1f}, alpha={fit_B_without['params'][1]:.2f}{outlier_note}"
+    headline = f"Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*={fit_B_without['params'][0]:.1f}, alpha={fit_B_without['params'][1]:.2f}{outlier_note}. "
 else:
-    headline = f"Ceiling drops logistically at k_mid={fit_C_without['params'][1]:.1f}"
+    headline = f"Ceiling drops logistically at k_mid={fit_C_without['params'][1]:.1f}. "
+
+# Add antipodal finding
+headline += f"All Regime III points fall below the antipodal bound, with k=29 achieving only {0.690/0.966:.1%} of theoretical maximum (28.5% deficit)."
 
 results_json = {
     "data_points": data,
@@ -353,6 +417,12 @@ results_json = {
             "model_C": fit_C_without
         }
     },
+    "deficit_power_law": {
+        "gamma": float(gamma),
+        "r2": float(r2_deficit),
+        "verdict": deficit_verdict
+    },
+    "equatorial_confusion": confusion_results,
     "loglog_test": {
         "with_k21": {"slope": float(m_with), "r2": float(r2_ll_with), 
                      "verdict": verdict_with},

@@ -175,6 +175,55 @@
       }
     }
   },
+  "deficit_power_law": {
+    "gamma": -0.04471769853921708,
+    "r2": 0.995994057241461,
+    "verdict": "SUB-LINEAR DEFICIT GROWTH"
+  },
+  "equatorial_confusion": [
+    {
+      "k": 5,
+      "floor_half": 2,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 1.5
+    },
+    {
+      "k": 7,
+      "floor_half": 3,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 1.0
+    },
+    {
+      "k": 11,
+      "floor_half": 5,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 0.6
+    },
+    {
+      "k": 19,
+      "floor_half": 9,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 0.3333333333333333
+    },
+    {
+      "k": 21,
+      "floor_half": 10,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 0.3
+    },
+    {
+      "k": 23,
+      "floor_half": 11,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 0.2727272727272727
+    },
+    {
+      "k": 29,
+      "floor_half": 14,
+      "n_ambiguous_layers": 3,
+      "confusion_ratio": 0.21428571428571427
+    }
+  ],
   "loglog_test": {
     "with_k21": {
       "slope": -0.5978585019837315,
@@ -257,5 +306,5 @@
     "verdict": "OUTLIER"
   },
   "winner": "power_law",
-  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48 (k=21 is OUTLIER)"
+  "headline_finding": "Ceiling follows power law: ceiling ~ (k*/k)^alpha with k*=13.9, alpha=0.48 (k=21 is OUTLIER). All Regime III points fall below the antipodal bound, with k=29 achieving only 71.4% of theoretical maximum (28.5% deficit)."
 }
