@@ -6,6 +6,29 @@ This directory contains experiments proving that **grokking is the cost of struc
 
 ---
 
+## Latest: LLM-Driven Phase Memory — an O(1) "self-agent" (see MEMORY-AGENT.md)
+
+The zero-parameter result below is the `D=1` special case of a general idea: give an **LLM a
+phase-native associative memory it drives itself** — it decides what established reasoning to
+solidify into low-byte nuggets, writes them, and recalls them in **constant time regardless
+of how much it has stored** (O(1) seek), verifying low-confidence recalls. "Blindness is the
+enemy": the LLM's judgment is the control surface, not a blind pipeline.
+
+Proven here (CPU, no API):
+- **O(1) seek** — phase recall is flat (~0.5 ms) from 10 to 3000 stored nuggets while a naive
+  scan grows linearly to 5.4 ms (`experiments/seek_scaling.py`).
+- **Specialization** — an agent answering `reach(s,k)` on a hidden graph uses **110,504 → 99
+  steps (~1116× less compute) at unchanged 100% accuracy** once it solidifies jump nuggets
+  into a fixed **384 KB** memory (`experiments/memory_agent_specialization.py`).
+- The real LLM driver (`phase_native/agent.py`) is ready; run `--live` where API creds exist.
+
+```bash
+python tests/test_phase_native.py && python experiments/seek_scaling.py \
+  && python experiments/memory_agent_specialization.py
+```
+
+---
+
 ## KEY RESULT: Exact Solution with Zero Parameters
 
 ### ZkBundleExplicit - Fourier Readout

@@ -1,5 +1,28 @@
 # PHASE-NATIVE LLM - COMPLETE HANDOFF
-**Last Updated:** March 31, 2026
+**Last Updated:** August 21, 2026
+
+---
+
+## NEWEST LINE: LLM-Driven Phase Memory (see MEMORY-AGENT.md)
+
+The direction has moved from "zero-param solvers" to **an LLM that builds and calls a
+phase-native memory as its own O(1) store** — solidify established reasoning into low-byte
+nuggets, recall in constant time, verify low-confidence recalls, iterate → the model
+specializes and stops re-deriving. The zero-param `ZkBundleExplicit` is the `D=1` special
+case of this memory.
+
+New package `phase_native/` (numpy, CPU — torch not required):
+- `memory.py` PhaseNuggetMemory (write / recall O(1) / forget / serialize), `codebook.py`
+  (CRT value decode + random keys, reusing `analysis/test_crt.py`), `ops.py`, `tools.py`
+  (Claude tool schemas), `agent.py` (`run_agent` — the real LLM loop), `driver.py`
+  (ScriptedDriver offline scaffolding), `domain.py` (hidden-graph reach task).
+- `experiments/seek_scaling.py` → **O(1) seek** (flat ~0.5 ms, 10→3000 nuggets) + capacity.
+- `experiments/memory_agent_specialization.py` → **110,504 → 99 steps (~1116×), acc 1.000**
+  in a fixed 384 KB memory; `--live` runs the LLM itself (needs Anthropic creds).
+- `tests/test_phase_native.py` → 16 checks incl. the live tool-loop via a mock client. ALL PASS.
+
+NOTE: this sandbox has no API key and its proxy bypasses api.anthropic.com, so `--live`
+can't run here — everything else is proven; run `--live` where creds exist.
 
 ---
 
