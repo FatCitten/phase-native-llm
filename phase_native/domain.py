@@ -22,11 +22,17 @@ import numpy as np
 class RelationGraph:
     n_nodes: int = 256
     seed: int = 0
+    bijective: bool = False  # True -> successor is a permutation (long cycles, no convergence)
 
     def __post_init__(self) -> None:
         rng = np.random.default_rng(self.seed)
-        # a random functional graph: every node has exactly one successor
-        self._next = rng.integers(0, self.n_nodes, size=self.n_nodes)
+        # functional graph (default) or a permutation. The permutation avoids the coincidental
+        # "wrong path lands on the right node" matches that a convergent functional graph
+        # produces at large depth, so composition-depth curves read cleanly.
+        self._next = (
+            rng.permutation(self.n_nodes) if self.bijective
+            else rng.integers(0, self.n_nodes, size=self.n_nodes)
+        )
         self.steps_taken = 0  # global compute counter (base hops actually traversed)
 
     def step(self, node: int) -> int:

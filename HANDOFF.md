@@ -19,7 +19,10 @@ New package `phase_native/` (numpy, CPU — torch not required):
 - `experiments/seek_scaling.py` → **O(1) seek** (flat ~0.5 ms, 10→3000 nuggets) + capacity.
 - `experiments/memory_agent_specialization.py` → **110,504 → 99 steps (~1116×), acc 1.000**
   in a fixed 384 KB memory; `--live` runs the LLM itself (needs Anthropic creds).
-- `tests/test_phase_native.py` → 16 checks incl. the live tool-loop via a mock client. ALL PASS.
+- `phase_native/compose.py` + `experiments/compose_multihop.py` → **composition**: store only
+  atomic facts, chain them into multi-hop answers by iterated O(1) recall (correct to depth 160
+  lightly loaded; honest load horizon); costly steps plateau at world-size (**159 vs 14,957, ~94×**).
+- `tests/test_phase_native.py` → 21 checks incl. composition + the live tool-loop via a mock client. ALL PASS.
 
 NOTE: this sandbox has no API key and its proxy bypasses api.anthropic.com, so `--live`
 can't run here — everything else is proven; run `--live` where creds exist.

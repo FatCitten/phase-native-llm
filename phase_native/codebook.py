@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
+from functools import lru_cache
 from math import gcd, prod
 
 import numpy as np
@@ -72,11 +73,18 @@ def stable_hash(text: str) -> int:
 # --------------------------------------------------------------------------------------
 # Keys: deterministic random phase vectors from a cue string
 # --------------------------------------------------------------------------------------
+@lru_cache(maxsize=200_000)
 def key_vector(cue: str, dim: int) -> np.ndarray:
-    """Unit-modulus complex vector of length `dim`, deterministic in `cue`."""
+    """Unit-modulus complex vector of length `dim`, deterministic in `cue`.
+
+    Cached (the function is pure): the returned array is marked read-only so a stray write
+    can't corrupt the cache. The ops (bind/unbind) allocate new arrays, so they never mutate
+    it; make an explicit copy if you need a writable one.
+    """
     rng = np.random.default_rng(stable_hash(cue) % (2**63))
-    phases = rng.uniform(0.0, TWO_PI, size=dim)
-    return np.exp(1j * phases)
+    v = np.exp(1j * rng.uniform(0.0, TWO_PI, size=dim))
+    v.flags.writeable = False
+    return v
 
 
 # --------------------------------------------------------------------------------------

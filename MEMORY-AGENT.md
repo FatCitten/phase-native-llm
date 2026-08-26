@@ -53,12 +53,13 @@ Measured (`experiments/seek_scaling.py`, dim=4096):
 
 | nuggets N | phase seek | naive scan |
 |-----------|-----------|-----------|
-| 10 | 0.51 ms | 0.02 ms |
-| 300 | 0.49 ms | 0.30 ms |
-| 3000 | **0.53 ms** | **5.39 ms** |
+| 10 | 0.16 ms | 0.03 ms |
+| 300 | 0.13 ms | 0.22 ms |
+| 3000 | **0.13 ms** | **2.27 ms** |
 
-Phase seek is flat as N grows 300×; a naive store-and-scan grows linearly and is 10× slower
-by N=3000. **Caveat:** O(1) *time*, **bounded capacity** — recall fidelity degrades as load
+(indicative wall-times; the invariant is the shape.) Phase seek is flat as N grows 300×; a
+naive store-and-scan grows linearly and is ~17× slower by N=3000. **Caveat:** O(1) *time*,
+**bounded capacity** — recall fidelity degrades as load
 approaches capacity (tunable via dim), so the LLM verifies and re-derives low-confidence
 recalls. Capacity is measured, not hidden.
 
@@ -85,12 +86,30 @@ queries:
 recall hits. That is the specialization signal: as the LLM solidifies established results,
 per-query compute falls toward zero while correctness holds.
 
+## Composition / multi-hop — combine nuggets, don't just look them up
+
+The reason for a *geometric* store over a dict: knowledge you can **combine**. The LLM
+solidifies only **atomic** facts (`edge(node) = f(node)`); any multi-hop answer is built by
+**iterated O(1) recall** — `recall_chain` (`phase_native/compose.py`) walks the chain, each hop
+a phase `unbind`, storing **nothing new** and computing **nothing new**.
+
+- **It works, with an honest horizon** (`experiments/compose_multihop.py`). Per-hop fidelity is
+  `p`; an H-hop chain is ~`p^H`, and `p` rises with `dim/N`. Lightly loaded (64 nuggets in
+  dim 8192) it composes **100% correct to depth 160**; heavier load lowers the horizon — measured,
+  not hidden. `recall_chain` returns the weakest hop's confidence so the LLM re-derives a broken one.
+- **Compute is bounded by the world, not the workload.** Each atomic edge is learned at most once,
+  so costly `step`s **plateau at ≤ n_nodes** and every later multi-hop query is free: over a stream
+  of 150 queries, **159 steps with memory vs 14,957 without (~94×)** — and the gap grows with every
+  extra query, at any hop count. Composing beats caching composites: storing every jump instead
+  would overload a fixed memory (measured), so store atomic facts and compose.
+
 ## Running it
 
 ```bash
 python tests/test_phase_native.py                          # all offline, no API
 python experiments/seek_scaling.py                         # O(1) seek + capacity figure
 python experiments/memory_agent_specialization.py          # offline specialization (scripted)
+python experiments/compose_multihop.py                     # compositional multi-hop recall
 python experiments/memory_agent_specialization.py --live --n 8   # the LLM drives it (needs creds)
 ```
 
@@ -128,6 +147,7 @@ phase_native/
   codebook.py   CRT value encoding (O(1) decode) + deterministic random keys + CRT
   ops.py        bind / unbind / superpose / cleanup (elementwise, no gradients)
   memory.py     PhaseNuggetMemory: write / recall(O(1)) / forget / serialize
+  compose.py    recall_chain / compose_reach / lifted_reach — multi-hop composition
   tools.py      Claude tool schemas + executor (memory_recall/write, step, stats)
   driver.py     Driver protocol + ScriptedDriver (offline scaffolding)
   agent.py      ClaudeDriver / run_agent — the real LLM-driven loop
@@ -135,5 +155,6 @@ phase_native/
 experiments/
   seek_scaling.py                    O(1) seek + capacity/fidelity
   memory_agent_specialization.py     specialization curve (offline + --live)
+  compose_multihop.py                compositional multi-hop recall + honest horizon
 tests/test_phase_native.py           self-checking suite (no API)
 ```

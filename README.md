@@ -15,11 +15,15 @@ of how much it has stored** (O(1) seek), verifying low-confidence recalls. "Blin
 enemy": the LLM's judgment is the control surface, not a blind pipeline.
 
 Proven here (CPU, no API):
-- **O(1) seek** — phase recall is flat (~0.5 ms) from 10 to 3000 stored nuggets while a naive
-  scan grows linearly to 5.4 ms (`experiments/seek_scaling.py`).
+- **O(1) seek** — phase recall stays flat (~0.13 ms) from 10 to 3000 stored nuggets while a
+  naive scan grows linearly (~17× slower by 3000) (`experiments/seek_scaling.py`).
 - **Specialization** — an agent answering `reach(s,k)` on a hidden graph uses **110,504 → 99
   steps (~1116× less compute) at unchanged 100% accuracy** once it solidifies jump nuggets
   into a fixed **384 KB** memory (`experiments/memory_agent_specialization.py`).
+- **Composition** — the LLM stores only *atomic* facts and chains them into multi-hop answers
+  by iterated O(1) recall (`recall_chain`): correct to depth 160 when lightly loaded, with an
+  honest load-dependent horizon; costly steps plateau at ≤ world-size — **159 vs 14,957 (~94×)**
+  over a query stream (`experiments/compose_multihop.py`).
 - The real LLM driver (`phase_native/agent.py`) is ready; run `--live` where API creds exist.
 
 ```bash

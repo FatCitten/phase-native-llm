@@ -11,6 +11,7 @@ See MEMORY-AGENT.md for the full story. Core pieces:
 """
 
 from .codebook import CRTValueCodebook, crt_combine, key_vector
+from .compose import ChainResult, compose_reach, lifted_reach, recall_chain
 from .memory import PhaseNuggetMemory, RecallResult
 from .ops import bind, cleanup, superpose, unbind
 
@@ -24,4 +25,8 @@ __all__ = [
     "unbind",
     "superpose",
     "cleanup",
+    "recall_chain",
+    "compose_reach",
+    "lifted_reach",
+    "ChainResult",
 ]

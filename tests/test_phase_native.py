@@ -19,6 +19,7 @@ import numpy as np
 
 from phase_native import PhaseNuggetMemory, bind, unbind
 from phase_native.codebook import CRTValueCodebook, crt_combine, key_vector
+from phase_native.compose import compose_reach, edge_cue, recall_chain
 from phase_native.domain import QueryStream, RelationGraph
 from phase_native.driver import ScriptedDriver
 from phase_native.tools import MemoryToolExecutor
@@ -64,6 +65,33 @@ def test_memory():
     mem2 = PhaseNuggetMemory.from_dict(mem.to_dict())
     check("serialize round-trip preserves recalls",
           all(mem2.recall(c).payload == mem.recall(c).payload for c in facts))
+
+
+def test_composition():
+    print("Compositional multi-hop recall (chain atomic nuggets)")
+    g = RelationGraph(n_nodes=64, seed=7, bijective=True)  # light load, ample dim -> ~100%/hop
+    mem = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=2048)
+    for n in range(64):
+        mem.write(edge_cue(n), g.step(n))
+    deep_ok = all(
+        recall_chain(mem, s, d).node == g.truth_pow(s, d)
+        for s in range(0, 64, 7) for d in (1, 5, 20, 80)
+    )
+    check("composes atomic facts into deep answers (depth up to 80)", deep_ok)
+
+    r = recall_chain(mem, 0, 40)
+    check("a fully-confident chain reports ok + high min-confidence", r.ok and r.min_confidence > 0.45)
+
+    # compose_reach learns each atomic edge at most once, then answers for free
+    g2 = RelationGraph(n_nodes=64, seed=7, bijective=True)
+    mem2 = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=2048)
+    first = compose_reach(mem2, g2, 3, 200)
+    steps_after_warm = g2.steps_taken
+    g2.reset_counter()
+    second = compose_reach(mem2, g2, 3, 200)  # same query, now fully cached
+    check("compose_reach is correct", first.node == g2.truth_pow(3, 200))
+    check("re-answering a learned query costs 0 steps", g2.steps_taken == 0)
+    check("atomic edges learned at most once (<= n_nodes steps)", steps_after_warm <= 64)
 
 
 def test_scripted_loop():
@@ -127,7 +155,8 @@ def test_agent_plumbing():
 
 
 def main():
-    for t in (test_crt, test_ops, test_memory, test_scripted_loop, test_agent_plumbing):
+    for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
+              test_agent_plumbing):
         t()
     print()
     if _failures:
