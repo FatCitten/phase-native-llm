@@ -106,7 +106,7 @@ def run_live(n=8, model="claude-opus-5", max_k=1023):
     from phase_native.agent import SYSTEM_PROMPT
 
     client = anthropic.Anthropic()
-    g = RelationGraph(n_nodes=256, seed=7)
+    g = RelationGraph(n_nodes=64, seed=7)  # small world so jumps recur across episodes
     mem = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=6144)
     ex = MemoryToolExecutor(graph=g, memory=mem)
 
@@ -124,7 +124,7 @@ def run_live(n=8, model="claude-opus-5", max_k=1023):
           f"running {n} episodes (each is several turns). Ctrl-C to abort.")
 
     rng = np.random.default_rng(3)
-    anchors = rng.integers(0, 256, size=4)  # few anchors so jumps recur -> memory helps
+    anchors = rng.integers(0, 64, size=2)  # few recurring anchors so jumps recur -> memory helps
     rows = []
     for i in range(n):
         s = int(rng.choice(anchors))
