@@ -86,6 +86,26 @@ queries:
 recall hits. That is the specialization signal: as the LLM solidifies established results,
 per-query compute falls toward zero while correctness holds.
 
+### Live result — real Claude driving it (Haiku 4.5)
+
+Run for real via `--live` (8 episodes, a 64-node hidden graph, 2 recurring start nodes;
+`results/memory_agent_live.json`), **8/8 answers correct**. On the recurring anchor (node 51),
+the model paid 2 `step`s once to build its jumps, then **every later query from that node cost
+0 `step`s** — answered purely by O(1) recall:
+
+| episode | query | steps | memory hits |
+|--------|-------|------:|-----:|
+| 0 | reach(51, 4) | 2 | 0  (cold — builds jumps) |
+| 1 | reach(51, 13) | **0** | 3  (13 hops, fully from memory) |
+| 3 | reach(51, 2) | **0** | 1 |
+| 4 | reach(51, 7) | **0** | 5 |
+| 6 | reach(51, 3) | **0** | 3 |
+
+The model itself decided when to recall vs. compute. Haiku reused the memory perfectly on that
+anchor; on the other anchor it re-derived twice instead of recalling (imperfect policy
+adherence — a stronger model tightens this). The point stands: real Claude builds and relies on
+the O(1) memory, offloading compute exactly as the offline curves predict.
+
 ## Composition / multi-hop — combine nuggets, don't just look them up
 
 The reason for a *geometric* store over a dict: knowledge you can **combine**. The LLM
@@ -142,11 +162,11 @@ stand-in that drives the *same tools* with the *same policy*, so the mechanics a
 compute-offload effect are provable offline. It is not the solution; "blindness is the
 enemy." Its tool loop is byte-for-byte the interface the LLM uses.
 
-> **This sandbox has no Anthropic credentials, and its egress proxy bypasses
-> `api.anthropic.com`, so the live LLM run cannot execute here.** Everything else — the
-> substrate, the O(1) seek, capacity, the full tool loop (via a mock client in the tests),
-> and the specialization effect (via the scripted driver) — is proven here. Run the `--live`
-> command in an environment that has a key to see the LLM itself drive the memory.
+> **The `--live` path has been run for real** (Haiku 4.5, 8/8 correct — see "Live result"
+> above and `results/memory_agent_live.json`). By default this sandbox has no Anthropic
+> credentials and its egress proxy bypasses `api.anthropic.com`, so it needs a supplied key or
+> another environment; the substrate, O(1) seek, capacity, and the tool loop (mock-client
+> tests) are all proven here regardless.
 
 ## Honest limits
 
