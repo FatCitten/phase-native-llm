@@ -82,6 +82,12 @@ class EpisodeResult:
     iters: int
 
 
+def _supports_adaptive_thinking(model: str) -> bool:
+    """Adaptive thinking is on the 4.6+/5 family; Haiku 4.5 and older reject it."""
+    m = model.lower()
+    return not ("haiku" in m or "claude-3" in m or "sonnet-4-5" in m)
+
+
 def run_agent(
     s: int,
     k: int,
@@ -96,6 +102,7 @@ def run_agent(
 
     client = client or anthropic.Anthropic()
     tools = executor.schemas + [FINAL_ANSWER_TOOL]
+    extra = {"thinking": {"type": "adaptive"}} if _supports_adaptive_thinking(model) else {}
 
     steps0 = executor.graph.steps_taken
     r0, h0, w0 = executor.recalls, executor.hits, executor.writes
@@ -109,8 +116,8 @@ def run_agent(
             max_tokens=max_tokens,
             system=SYSTEM_PROMPT,
             tools=tools,
-            thinking={"type": "adaptive"},
             messages=messages,
+            **extra,
         )
         in_tok += resp.usage.input_tokens
         out_tok += resp.usage.output_tokens

@@ -154,9 +154,52 @@ def test_agent_plumbing():
     check("usage accumulated across turns", res.output_tokens == 20 and res.input_tokens == 40)
 
 
+class _MockOllama:
+    """Mock OpenAI-compatible chat client: scripts tool_calls to exercise run_agent_ollama."""
+
+    def __init__(self):
+        self.turn = 0
+        self._script = [
+            ("memory_write", '{"cue": "jump(node=5,level=0)", "conclusion": "42"}'),
+            ("memory_recall", '{"cue": "jump(node=5,level=0)"}'),
+            ("step", '{"node": 5}'),
+            ("final_answer", '{"node": 99}'),
+        ]
+
+    def chat(self, model, messages, tools):
+        name, args = self._script[self.turn]
+        self.turn += 1
+        return {
+            "choices": [{"message": {"role": "assistant", "content": None, "tool_calls": [
+                {"id": f"c{self.turn}", "type": "function",
+                 "function": {"name": name, "arguments": args}}]}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+
+
+def test_ollama_agent_plumbing():
+    print("Ollama-agent tool loop (mock OpenAI-compatible client)")
+    from phase_native.ollama_agent import run_agent_ollama, to_openai_tools
+    from phase_native.tools import MEMORY_TOOL_SCHEMAS
+
+    conv = to_openai_tools(MEMORY_TOOL_SCHEMAS)
+    check("tool schemas convert to OpenAI function shape",
+          conv[0]["type"] == "function" and "parameters" in conv[0]["function"])
+
+    g = RelationGraph(n_nodes=256, seed=7)
+    mem = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=512)
+    ex = MemoryToolExecutor(graph=g, memory=mem)
+    res = run_agent_ollama(0, 1, ex, client=_MockOllama())
+    check("loop terminates on final_answer", res.answer == 99)
+    check("write + recall + step dispatched via OpenAI tool_calls",
+          res.writes == 1 and res.recalls == 1 and res.steps == 1 and res.hits == 1)
+    check("usage accumulated (prompt/completion tokens)",
+          res.output_tokens == 20 and res.input_tokens == 40)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
-              test_agent_plumbing):
+              test_agent_plumbing, test_ollama_agent_plumbing):
         t()
     print()
     if _failures:

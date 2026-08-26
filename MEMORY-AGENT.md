@@ -110,8 +110,26 @@ python tests/test_phase_native.py                          # all offline, no API
 python experiments/seek_scaling.py                         # O(1) seek + capacity figure
 python experiments/memory_agent_specialization.py          # offline specialization (scripted)
 python experiments/compose_multihop.py                     # compositional multi-hop recall
-python experiments/memory_agent_specialization.py --live --n 8   # the LLM drives it (needs creds)
+python experiments/memory_agent_specialization.py --live --n 8   # Claude drives it (needs creds)
 ```
+
+### Provider-agnostic: drive it with any tool-capable LLM (Ollama)
+
+The memory is not Claude-specific — any model that can call tools can be the sighted driver.
+`phase_native/ollama_agent.py` runs the same tools/policy/metrics against Ollama's
+OpenAI-compatible endpoint (Ollama Cloud or a local server), stdlib-only, no extra deps.
+
+```bash
+# Ollama Cloud (from a machine where ollama.com is reachable):
+export OLLAMA_API_KEY=...            # host defaults to https://ollama.com
+python experiments/memory_agent_ollama.py --model gpt-oss:120b --n 6 --max-k 15
+# Local Ollama instead:
+export OLLAMA_HOST=http://localhost:11434   # `ollama pull qwen3` first; no key needed
+python experiments/memory_agent_ollama.py --model qwen3 --n 6
+```
+
+Pick a tool-capable model (gpt-oss, qwen3, llama3.3, qwen2.5, …). Step-calls fall and memory
+hits rise as the memory fills — the same specialization signal, on an open model.
 
 ## The real driver vs the scaffolding
 
@@ -150,11 +168,13 @@ phase_native/
   compose.py    recall_chain / compose_reach / lifted_reach — multi-hop composition
   tools.py      Claude tool schemas + executor (memory_recall/write, step, stats)
   driver.py     Driver protocol + ScriptedDriver (offline scaffolding)
-  agent.py      ClaudeDriver / run_agent — the real LLM-driven loop
+  agent.py      run_agent — the real Claude-driven loop
+  ollama_agent.py  run_agent_ollama — same loop on Ollama (open models, OpenAI-compatible)
   domain.py     hidden-graph reach(s,k) task with recurring sub-structure
 experiments/
   seek_scaling.py                    O(1) seek + capacity/fidelity
-  memory_agent_specialization.py     specialization curve (offline + --live)
+  memory_agent_specialization.py     specialization curve (offline + --live Claude)
+  memory_agent_ollama.py             live run on an Ollama model (Cloud or local)
   compose_multihop.py                compositional multi-hop recall + honest horizon
 tests/test_phase_native.py           self-checking suite (no API)
 ```

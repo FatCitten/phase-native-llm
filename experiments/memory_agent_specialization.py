@@ -146,6 +146,7 @@ def main():
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--n", type=int, default=8, help="live episodes")
     ap.add_argument("--model", default="claude-opus-5")
+    ap.add_argument("--max-k", type=int, default=1023, help="max hops per live episode")
     args = ap.parse_args()
 
     RESULTS.mkdir(exist_ok=True)
@@ -164,7 +165,7 @@ def main():
     }, indent=2))
     print("Saved results/memory_agent_specialization.{png,json}")
 
-    live_rows = run_live(args.n, args.model) if args.live else None
+    live_rows = run_live(args.n, args.model, args.max_k) if args.live else None
     if live_rows is not None:
         (RESULTS / "memory_agent_live.json").write_text(json.dumps(live_rows, indent=2))
         print("Saved results/memory_agent_live.json")
