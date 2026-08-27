@@ -106,7 +106,7 @@ def run_live(n=8, model="claude-opus-5", max_k=1023):
     from phase_native.agent import SYSTEM_PROMPT
 
     client = anthropic.Anthropic()
-    g = RelationGraph(n_nodes=256, seed=7)
+    g = RelationGraph(n_nodes=64, seed=7)  # small world so jumps recur across episodes
     mem = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=6144)
     ex = MemoryToolExecutor(graph=g, memory=mem)
 
@@ -124,7 +124,7 @@ def run_live(n=8, model="claude-opus-5", max_k=1023):
           f"running {n} episodes (each is several turns). Ctrl-C to abort.")
 
     rng = np.random.default_rng(3)
-    anchors = rng.integers(0, 256, size=4)  # few anchors so jumps recur -> memory helps
+    anchors = rng.integers(0, 64, size=2)  # few recurring anchors so jumps recur -> memory helps
     rows = []
     for i in range(n):
         s = int(rng.choice(anchors))
@@ -146,6 +146,7 @@ def main():
     ap.add_argument("--live", action="store_true")
     ap.add_argument("--n", type=int, default=8, help="live episodes")
     ap.add_argument("--model", default="claude-opus-5")
+    ap.add_argument("--max-k", type=int, default=1023, help="max hops per live episode")
     args = ap.parse_args()
 
     RESULTS.mkdir(exist_ok=True)
@@ -164,7 +165,7 @@ def main():
     }, indent=2))
     print("Saved results/memory_agent_specialization.{png,json}")
 
-    live_rows = run_live(args.n, args.model) if args.live else None
+    live_rows = run_live(args.n, args.model, args.max_k) if args.live else None
     if live_rows is not None:
         (RESULTS / "memory_agent_live.json").write_text(json.dumps(live_rows, indent=2))
         print("Saved results/memory_agent_live.json")

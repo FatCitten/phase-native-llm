@@ -24,7 +24,10 @@ Proven here (CPU, no API):
   by iterated O(1) recall (`recall_chain`): correct to depth 160 when lightly loaded, with an
   honest load-dependent horizon; costly steps plateau at ≤ world-size — **159 vs 14,957 (~94×)**
   over a query stream (`experiments/compose_multihop.py`).
-- The real LLM driver (`phase_native/agent.py`) is ready; run `--live` where API creds exist.
+- **Live-verified** — the real LLM driver ran on the API (Haiku 4.5, 8/8 correct): on a
+  recurring start node it paid a few steps once, then answered every later query — including a
+  13-hop one — in **0 steps** by O(1) recall (`results/memory_agent_live.json`). Also runs on
+  open models via Ollama (`experiments/memory_agent_ollama.py`).
 
 ```bash
 python tests/test_phase_native.py && python experiments/seek_scaling.py \
