@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "phase-native-memory"
+version = "0.1.0"
+description = "An O(1) associative memory an LLM builds and drives itself — phase-native, verifiable, torch-free."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["llm", "memory", "associative-memory", "holographic-reduced-representation", "o1", "agents", "tool-use"]
+dependencies = [
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+# plots for the experiments (results/*.png). The core memory and its tests need none of this.
+demo = ["matplotlib>=3.5"]
+# the live LLM driver (phase_native.agent.run_agent). Anthropic API credentials required to run.
+live = ["anthropic>=0.40"]
+# everything, for developing the package
+dev = ["matplotlib>=3.5", "anthropic>=0.40"]
+
+[tool.setuptools]
+packages = ["phase_native"]
