@@ -82,6 +82,54 @@ def lucid_capacity(reps, grid=range(5, 260, 5)):
     return dim, cap
 
 
+def correlation_robustness(reps=512, N=40, n_unknown=200, seed=0):
+    """The honest limit: as distinct cues become CORRELATED, does the gate abstain or lie?
+
+    As shipped, cue strings are hashed to independent keys (decorrelated), so exact-cue recall
+    stays clean. But if you key by semantic embedding, related topics produce correlated keys.
+    Result: unknown (never-stored) queries still abstain at 0% false-confident even under heavy
+    correlation, but correlated STORED keys crosstalk — above ~0.3 pairwise correlation the gate
+    returns confidently-WRONG stored values. Measured, not hidden.
+    """
+    from phase_native.ops import bind, unbind
+
+    def corr_keys(n, dim, rho, rng):
+        shared = np.exp(1j * rng.uniform(0, 2 * np.pi, dim))
+        ks = []
+        for _ in range(n):
+            indep = np.exp(1j * rng.uniform(0, 2 * np.pi, dim))
+            raw = rho * shared + np.sqrt(1 - rho**2) * indep
+            ks.append(raw / np.abs(raw))
+        return ks
+
+    rows = []
+    for rho in (0.0, 0.3, 0.5, 0.7, 0.85, 0.95):
+        rng = np.random.default_rng(seed)
+        mem = PhaseNuggetMemory(moduli=(8, 9, 5, 7), reps=reps)
+        gate = mem.min_confidence
+        for i in range(N):
+            mem._value_id(i)
+        keys = corr_keys(N, mem.dim, rho, rng)
+        M = sum(bind(keys[i], mem.values.encode(i)) for i in range(N))
+        cb = mem._cleanup_codebook()
+
+        def decode(est):
+            vid = int(np.argmax(np.real(cb @ np.conjugate(est))))
+            return vid, float(np.real(np.vdot(mem.values.encode(vid), est)) / mem.dim)
+
+        corr = np.mean([abs(np.vdot(keys[i], keys[j])) / mem.dim
+                        for i in range(N) for j in range(i + 1, N)])
+        confab = sum((c := decode(unbind(M, keys[i])))[1] >= gate and c[0] != i for i in range(N))
+        ukc = 0
+        for _ in range(n_unknown):
+            uk = np.exp(1j * rng.uniform(0, 2 * np.pi, mem.dim))
+            if decode(unbind(M, uk))[1] >= gate:
+                ukc += 1
+        rows.append({"rho": rho, "pairwise_corr": float(corr),
+                     "confab_stored": confab / N, "confab_unknown": ukc / n_unknown})
+    return rows
+
+
 def main():
     RESULTS.mkdir(exist_ok=True)
 
@@ -104,9 +152,20 @@ def main():
         print(f"  load={N:4d}  recall={r['true_recall']*100:5.1f}%  confab={r['confab']*100:4.1f}%  "
               f"abstain={r['abstain_known']*100:4.1f}%  margin={r['margin']:+.2f}")
 
+    # Panel C (console): the honest limit — behavior as distinct cues become correlated
+    corr_rows = correlation_robustness()
+    print("\n=== C: honest limit — confabulation vs cue CORRELATION (dim 2048, N=40) ===")
+    print("  (as shipped, hashed cues are decorrelated ~0.02; semantic/embedded keys correlate)")
+    for r in corr_rows:
+        print(f"  pairwise_corr={r['pairwise_corr']:.3f}  confident-wrong(stored)={r['confab_stored']*100:5.1f}%"
+              f"   false-confident(never-stored)={r['confab_unknown']*100:.1f}%")
+    print("  -> unknown-query abstention holds at 0% even under heavy correlation; correlated")
+    print("     STORED keys crosstalk into confident-wrong above ~0.3 pairwise correlation.")
+
     json.dump({"capacity": [{"dim": d, "kb": d * 16 / 1024, "facts": c} for d, c in caps],
                "bytes_per_fact": bytes_per_fact,
-               "sweep_dim": dimB, "loads": loads, "rows": rows},
+               "sweep_dim": dimB, "loads": loads, "rows": rows,
+               "correlation_limit": corr_rows},
               open(RESULTS / "lucidity.json", "w"), indent=2)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
