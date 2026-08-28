@@ -197,9 +197,24 @@ def test_ollama_agent_plumbing():
           res.output_tokens == 20 and res.input_tokens == 40)
 
 
+def test_lucid_fuzzy():
+    print("Fuzzy verify-before-assert (LucidMemory)")
+    from phase_native.lucid_guard import LucidMemory
+
+    lm = LucidMemory(reps=1024)
+    lm.commit("the migration must run before deploy because the new column is non-nullable")
+    lm.commit("rate limiting is enforced per api key not per ip address")
+    v = lm.verify("run the migration prior to deploying, the added column is non nullable")
+    check("recalls a paraphrase exact grep would miss",
+          v.status == "recalled" and "migration" in str(v.statement))
+    check("a recall carries a re-derivable receipt", v.receipt is not None and "residues" in v.receipt)
+    u = lm.verify("the frontend uses tailwind for styling")
+    check("abstains on a never-stored claim", u.status == "unknown")
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
-              test_agent_plumbing, test_ollama_agent_plumbing):
+              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy):
         t()
     print()
     if _failures:

@@ -94,20 +94,18 @@ class PhaseNuggetMemory:
         return vid
 
     def recall(self, cue: str, mode: str = "cleanup") -> RecallResult:
-        """Associative seek. Retrieval (unbind) is O(dim) -> constant in N (nuggets stored).
+        """Associative seek by a string cue (hashed to a decorrelated key). O(dim) in N.
 
-        mode="cleanup" (default): decode by matched filter over the value alphabet
-            (O(V) in the answer vocabulary, still O(1) in N). Higher capacity, and its
-            normalized score is a real confidence -> lets the LLM verify low-confidence
-            recalls. This is what the agent uses.
-        mode="crt": decode by per-channel CRT residues (O(dim), constant in BOTH N and V
-            -> strict O(1)). Lower capacity; used by the seek benchmark to show the
-            time/capacity tradeoff.
-
-        Confidence is the normalized matched-filter score Re<value(vid), est>/dim:
-        ~1.0 for a clean hit, ~0.3 for noise (an unwritten cue), across the gate.
+        mode="cleanup" (default): matched-filter decode over the value alphabet — O(V) in the
+            answer vocabulary, still O(1) in N; its normalized score is a real confidence.
+        mode="crt": per-channel CRT residue decode — O(dim), constant in N and V. Lower capacity.
+        Confidence = normalized score Re<value(vid), est>/dim (~1.0 clean hit, ~0.3 noise).
         """
-        est = unbind(self.M, key_vector(cue, self.dim))
+        return self.recall_key(key_vector(cue, self.dim), mode)
+
+    def recall_key(self, key: np.ndarray, mode: str = "cleanup") -> RecallResult:
+        """Recall from a key VECTOR directly (fuzzy/semantic cues supply their own key)."""
+        est = unbind(self.M, key)
         if mode == "crt":
             vid = self.values.decode(est)
         elif mode == "cleanup":
@@ -121,6 +119,12 @@ class PhaseNuggetMemory:
         payload = self._id2payload.get(vid)
         hit = payload is not None and confidence >= self.min_confidence
         return RecallResult(hit=hit, payload=payload, value_id=vid, confidence=confidence)
+
+    def write_key(self, key: np.ndarray, conclusion) -> int:
+        """Solidify (key vector -> conclusion) into M. Used by fuzzy/semantic cue layers."""
+        vid = self._value_id(conclusion)
+        self.M += bind(key, self.values.encode(vid))
+        return vid
 
     def forget(self, cue: str) -> bool:
         """Algebraic edit: subtract exactly this cue's binding out of M."""
