@@ -196,9 +196,10 @@ def main():
           f"{blind['test_acc']:.3f} vs dense {dense_acc:.3f} -> the loss never saw the surplus.")
     print(f"(2) AMPLIFY: {amp['amp']:.0f}x fewer synapses ({amp['weight_frac']*100:.1f}% kept) for "
           f"{amp['test_acc']/dense_acc*100:.0f}% of the capability (acc {amp['test_acc']:.3f}).")
-    print(f"(3) SOLIDIFIED = MEMORY: winning ticket ({tk*100:.0f}% of synapses) reached {thr} test in "
-          f"{et_t} epochs; dense {et_d}; SAME-sparsity random mask {et_r} "
-          f"(final: ticket {ticket.acc(Xte,yte):.3f}, random {rand.acc(Xte,yte):.3f}).")
+    print(f"(3) SOLIDIFIED = MEMORY: winning ticket ({tk*100:.0f}% of synapses) final "
+          f"{ticket.acc(Xte,yte):.3f} vs SAME-sparsity random {rand.acc(Xte,yte):.3f} "
+          f"(threshold {thr} in {et_t} vs {et_r} epochs) -> the specific structure carries it, "
+          f"not the sparsity. (Dense trains fastest in raw epochs {et_d}: it keeps every synapse.)")
 
     res = {"exhibit_A": {"train": a_tr, "test": a_te}, "dense_acc": dense_acc,
            "dense_params": dense.n_weights(), "sweep": sweep, "blind": blind, "amp": amp,
@@ -222,7 +223,7 @@ def main():
                       (h_rand, f"random mask ({tk*100:.0f}%)", "#c62828")]:
         ax2.plot([e for e, _, _ in h], [t for _, _, t in h], label=lab, color=c)
     ax2.set_xlabel("training epochs"); ax2.set_ylabel("test accuracy")
-    ax2.set_title("The solidified structure learns faster (it IS the memory)")
+    ax2.set_title("Solidified structure >> random subnet of equal sparsity (it IS the memory)")
     ax2.legend(loc="lower right")
     fig.tight_layout(); fig.savefig(RESULTS / "synaptic_pruning.png", dpi=140)
     print("\nSaved results/synaptic_pruning.{json,png}")
