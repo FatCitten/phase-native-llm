@@ -44,6 +44,7 @@ class PhaseNuggetMemory:
     moduli: tuple[int, ...] = (8, 9, 5, 7)
     reps: int = 512
     min_confidence: float = 0.45
+    min_margin: float = 0.0  # abstain if top-1 and runner-up are within this gap (near-tie guard)
 
     def __post_init__(self) -> None:
         self.values = CRTValueCodebook(self.moduli, self.reps)
@@ -106,18 +107,24 @@ class PhaseNuggetMemory:
     def recall_key(self, key: np.ndarray, mode: str = "cleanup") -> RecallResult:
         """Recall from a key VECTOR directly (fuzzy/semantic cues supply their own key)."""
         est = unbind(self.M, key)
+        margin_ok = True
         if mode == "crt":
             vid = self.values.decode(est)
         elif mode == "cleanup":
             cb = self._cleanup_codebook()
             if cb.shape[0] == 0:
                 return RecallResult(False, None, -1, 0.0)
-            vid = int(np.argmax(np.real(cb @ np.conjugate(est))))
+            scores = np.real(cb @ np.conjugate(est)) / self.dim
+            order = np.argsort(scores)[::-1]
+            vid = int(order[0])
+            if self.min_margin > 0 and len(order) > 1:
+                # two stored items match almost equally -> ambiguous -> abstain, don't invert
+                margin_ok = (scores[order[0]] - scores[order[1]]) >= self.min_margin
         else:
             raise ValueError(f"unknown recall mode {mode!r}")
         confidence = float(np.real(np.vdot(self.values.encode(vid), est)) / self.dim)
         payload = self._id2payload.get(vid)
-        hit = payload is not None and confidence >= self.min_confidence
+        hit = payload is not None and confidence >= self.min_confidence and margin_ok
         return RecallResult(hit=hit, payload=payload, value_id=vid, confidence=confidence)
 
     def write_key(self, key: np.ndarray, conclusion) -> int:

@@ -123,6 +123,29 @@ a phase `unbind`, storing **nothing new** and computing **nothing new**.
   extra query, at any hop count. Composing beats caching composites: storing every jump instead
   would overload a fixed memory (measured), so store atomic facts and compose.
 
+## Lucidity — recall your own conclusions, or honestly abstain
+
+The AI-native reason this beats a similarity store *and* a plain file: it recalls a prior
+conclusion from an **approximate restatement**, hands back an **auditable receipt**, and
+**refuses instead of fabricating**. A file+grep can't be fuzzy; a vector DB can't refuse or be
+audited.
+
+- **`experiments/lucidity.py`** — the significance metric. Within a self-diagnosed capacity,
+  **0% confabulation** and monotonic-calibrated confidence; capacity scales linearly
+  (~640 bytes / verifiable fact). Honest limit (Panel C): unknown-query abstention holds at 0%
+  false-confident even under heavy cue correlation, but correlated *stored* keys crosstalk into
+  confident-wrong above ~0.3 pairwise correlation (as shipped, hashed cues are decorrelated).
+- **`phase_native/lucid_guard.py` — verify-before-assert.** `commit(conclusion)` checkpoints the
+  moment you conclude; `verify(claim)` returns *recalled + receipt* or *unknown — you're
+  improvising*, cheap enough to gate every assertion (the failure fires exactly when you don't
+  think to look). Fuzzy matching via `semantic.py` (token-superposition keys; lexical overlap —
+  a drop-in embedding front-end extends it to synonymy).
+- **`experiments/beat_the_file.py`** — the head-to-head: on paraphrased prior conclusions, exact
+  grep recalls **0/10**, lucid **10/10**, with **0/5** false-confident on never-stored. Honest
+  precision cost: 1/2 distinct-but-overlapping conclusions collide (why the semantic front-end is
+  next). NOTE: `verify` is a hook you call, not yet wired into the forward pass — that in-loop
+  integration is the research north star.
+
 ## Running it
 
 ```bash
@@ -130,6 +153,8 @@ python tests/test_phase_native.py                          # all offline, no API
 python experiments/seek_scaling.py                         # O(1) seek + capacity figure
 python experiments/memory_agent_specialization.py          # offline specialization (scripted)
 python experiments/compose_multihop.py                     # compositional multi-hop recall
+python experiments/lucidity.py                             # 0% confabulation + honest limits
+python experiments/beat_the_file.py                        # fuzzy recall vs grep (10/10 vs 0/10)
 python experiments/memory_agent_specialization.py --live --n 8   # Claude drives it (needs creds)
 ```
 

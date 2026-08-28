@@ -33,8 +33,12 @@ class VerifyResult:
 
 
 class LucidMemory:
-    def __init__(self, reps: int = 512, moduli=(8, 9, 5, 7)):
-        self.mem = PhaseNuggetMemory(moduli=moduli, reps=reps)
+    def __init__(self, reps: int = 512, moduli=(8, 9, 5, 7), min_margin: float = 0.12):
+        # min_margin abstains when two stored conclusions match almost equally (a genuine tie).
+        # It does NOT resolve semantic opposites that share vocabulary ("nullable after" vs
+        # "non-nullable before") — those are inseparable with lexical keys and need a semantic
+        # embedding front-end. See experiments/beat_the_file.py (near-collision row).
+        self.mem = PhaseNuggetMemory(moduli=moduli, reps=reps, min_margin=min_margin)
         self.dim = self.mem.dim
 
     def commit(self, statement: str) -> int:
