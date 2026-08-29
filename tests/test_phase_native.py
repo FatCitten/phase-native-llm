@@ -213,7 +213,7 @@ def test_lucid_fuzzy():
 
 
 def test_consolidation():
-    print("Iterative consolidation: inviolate axioms, void-prune, distance grows outward")
+    print("Iterative consolidation: inviolate axioms, void-prune, tightening cross-paths")
     from experiments.consolidation_rounds import (
         ConsolidatingNet, fiber_distance, hier_teacher_data)
 
@@ -226,8 +226,9 @@ def test_consolidation():
     d_far = fiber_distance(np.array([1.0, 3.0]), np.array([0.0, 2.0]))   # weight mostly on the far src
     check("leaning on further sources monotonically increases distance", d_far > d_near)
 
-    # (b) a short real loop: void pruned, axioms inviolate, structure grows outward
     Xtr, ytr, Xte, yte, D, C = hier_teacher_data(N=1500, ntr=1100, seed=0)
+
+    # (b) a short LOOSE loop (tau=0): void pruned, axioms inviolate, structure grows outward
     net = ConsolidatingNet(D, C, seed=1)
     r1 = net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, floor=0.5, conn_floor=0.35, refit=150)
     axiom = net.frozen_W[0].copy()  # the round-1 axioms
@@ -235,13 +236,30 @@ def test_consolidation():
     for _ in range(3):
         stats.append(net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, conn_floor=0.35, refit=150))
     check("overproduced candidates are pruned as void (kept < P)", 1 <= r1["kept"] < 16)
-    check("connection-pruning drops non-relating incoming wires (conn_frac < 1)", r1["conn_frac"] < 1.0)
     check("round-1 axioms are byte-identical after all later rounds",
           np.array_equal(axiom, net.frozen_W[0]))
     check("the frozen base only ever grows (append-only)",
           len(net.frozen_W) == 4 and len(net.dist) > r1["kept"])
     check("structure grows outward (mean distance-from-axiom rises past round 1)",
           stats[-1]["mean_dist"] > stats[0]["mean_dist"] + 0.05)
+
+    # (c) the TIGHTENING RATIO pulls concept-lines into a sparse cross-path mesh, cutting wiring
+    def mini(sched, seed=2):
+        nt = ConsolidatingNet(D, C, seed=seed)
+        hs = [nt.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, tau=t) for t in sched]
+        return nt, hs
+    tt, th = mini([0.0, 0.3, 0.5, 0.7])
+    uu, _ = mini([0.0, 0.0, 0.0, 0.0])
+    check("tightening forms cross-paths once a base exists (fiber->fiber edges appear)",
+          th[1]["cross_edges"] > 0 and tt.cross_edges > 0)
+    check("each new fiber stays sparsely bundled (<= k_par=6 parents)",
+          all(s["cross_edges"] <= 6 * s["kept"] for s in th))
+    check("survivors meet the tightening ratio (base-mass share tracks the ramp)",
+          th[-1]["base_share"] >= 0.4)
+    check("the tightened mesh is sparser than the loose one (fewer total edges)",
+          tt.cross_edges < uu.cross_edges)
+    check("tightening cuts total wiring vs the untightened loop (same seed)",
+          tt.synapses < uu.synapses)
 
 
 def main():

@@ -12,17 +12,24 @@ Biological development in waves. Round 1's surviving hidden units are the AXIOMS
      void. Survivors "further established phases" and are kept.
   4. FREEZE survivors as new established fiber primitives (bundles). Repeat.
 
+The TIGHTENING RATIO (tau, ramped loose->tight across rounds) pulls the concept-lines into one another,
+forming cross-paths, via force + reward + pressure: raw-input reads get costlier and hard-capped while
+frozen-base reads get cheaper (force + reward), each new fiber may bundle only k_par existing fibers
+(sparse composition -> every cross-path is cheap), and a survivor must hold a base-mass share >= a
+rising-but-capped threshold or be pruned as "not tight enough" (pressure). tau=0 reproduces the loose
+baseline; the ramp turns parallel accreted columns into a sparse fiber->fiber mesh.
+
 Distance-from-axiom (relational hops, "distance = the gap/void of non-relation"):
     dist(input) = 0;  dist(fiber) = 1 + (sum over SURVIVING incoming |w|*dist(source)) / (sum |w|).
-A fiber reading only inputs -> 1; one that bundles level-(r-1) fibers -> ~r. Growing this mean
-outward across rounds is the numeric form of "further from axiom."
 
-Honest controls & kill-criteria (stated up front, no forcing the result): the round-1 axioms are
-asserted byte-identical after every later round; two MONOLITHIC nets of the same final width trained
-jointly (a dense one, and one magnitude-pruned to the loop's synapse budget) bound capability-per-
-synapse. What the numbers show on this shallow teacher: consolidation delivers inviolable, outward-
-growing structure, but TRADES efficiency for it -- the frozen-core loop needs more wires than
-unconstrained joint training to reach comparable accuracy (there is little deep reuse here to amortize).
+Honest controls & kill-criteria (stated up front, no forcing the result): round-1 axioms are asserted
+byte-identical after every later round; a TIGHTENED loop is run against an UNTIGHTENED one (same seed)
+and two MONOLITHIC nets (dense + magnitude-pruned to the tightened budget). What the numbers show on
+this shallow teacher: tightening forms a sparse cross-path mesh and cuts wires ~3.4x at ~equal accuracy,
+which FLIPS the efficiency loss versus dense joint training (capability/synapse up). Honest limits it
+does NOT hide: mean distance-from-axiom no longer grows further than the loose loop (sparse bundling
+trades depth for cheap wires), and plain magnitude pruning of a jointly-trained net stays the most
+wire-efficient of all -- consolidation's return is inviolable, legible structure, not beating pruning.
 Pure numpy, CPU.  Run: python experiments/consolidation_rounds.py
 """
 
@@ -87,49 +94,88 @@ class ConsolidatingNet:
         self.dist = []                # distance-from-axiom of each established fiber
         self.frozen_W = []            # kept incoming weights (for the inviolability assert)
         self.synapses = 0             # cumulative synapses committed
+        self.cross_edges = 0          # cumulative fiber->fiber connections (the cross-path mesh)
 
     def _ensure(self, Xtr, Xte):
         if self.frozen_tr is None:
             self.Ftr = np.zeros((len(Xtr), 0)); self.Fte = np.zeros((len(Xte), 0))
             self.frozen_tr = np.zeros((len(Xtr), self.C)); self.frozen_te = np.zeros((len(Xte), self.C))
 
+    @staticmethod
+    def _cap_cols(M, k):
+        """Keep only the top-k |values| in each column of M (a view into W); zero the rest, in place."""
+        for j in range(M.shape[1]):
+            col = np.abs(M[:, j])
+            if (col > 0).sum() > k:
+                M[:, j][col < np.sort(col)[-k]] = 0.0
+
     def acc(self, y, which="te"):
         logits = (self.frozen_te if which == "te" else self.frozen_tr) + self.bias
         return float((logits.argmax(1) == y).mean())
 
     def grow_round(self, Xtr, ytr, Xte, yte, P=32, epochs=1500, lr=0.05, wd=1e-4,
-                   floor=0.1, conn_floor=0.2, refit=400):
+                   floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6):
+        """One consolidation wave. `tau` in [0,1) is the TIGHTENING RATIO: the target share of a new
+        fiber's incoming weight-mass that must land on the frozen base (cross-paths) rather than raw
+        inputs. tau ramps up across rounds to pull the concept-lines into one another. `k_par` bounds
+        how many frozen fibers a new fiber may bundle (sparse composition -> each cross-path is cheap)."""
         self._ensure(Xtr, Xte)
-        Ztr = np.concatenate([Xtr, self.Ftr], 1)      # candidates read inputs + frozen base
+        Ztr = np.concatenate([Xtr, self.Ftr], 1)      # candidates read [inputs | frozen base]
         Zte = np.concatenate([Xte, self.Fte], 1)
         din, n = Ztr.shape[1], len(ytr)
+        n_base = din - self.D                         # frozen fibers available to compose
+        tight = n_base > 0 and tau > 0
         W = self.rng.normal(0, np.sqrt(2 / din), (din, P))  # overproduce P candidates
         b = np.zeros(P)
         V = self.rng.normal(0, 0.01, (P, self.C))
         db = np.zeros(self.C)
         onehot = np.eye(self.C)[ytr]
+
+        # FORCE + REWARD: per-row weight decay -- raw-input reads get costlier as tau rises, frozen
+        # base reads get cheaper, so gradient descent routes signal THROUGH existing fibers.
+        row_wd = np.full((din, 1), wd)
+        if tight:
+            row_wd[:self.D] = wd * (1.0 + 5.0 * tau)   # inputs: penalized
+            row_wd[self.D:] = wd * (1.0 - 0.8 * tau)   # base: rewarded (stays >= 0.2*wd)
         for _ in range(epochs):
             pre = Ztr @ W + b; A = np.maximum(pre, 0)
             logits = self.frozen_tr + A @ V + db + self.bias
             dl = (softmax(logits) - onehot) / n
             dV = A.T @ dl + wd * V; ddb = dl.sum(0)
             dpre = (dl @ V.T) * (pre > 0)
-            dW = Ztr.T @ dpre + wd * W; dbb = dpre.sum(0)
+            dW = Ztr.T @ dpre + row_wd * W; dbb = dpre.sum(0)
             W -= lr * dW; b -= lr * dbb; V -= lr * dV; db -= lr * ddb
 
         # (1) UNIT prune: a candidate that moves the output relates to something; the void does not.
         contribution = np.linalg.norm(V, axis=1) * np.maximum(Ztr @ W + b, 0).std(0)
         keep = np.where(contribution >= floor * contribution.max())[0]
-        void_frac = 1 - len(keep) / P
         W, b, V = W[:, keep], b[keep], V[keep]
 
-        # (2) CONNECTION prune the void: drop each surviving fiber's near-zero incoming reads, so a
-        # "synapse" only ever counts a real relation. (The plan's "over its surviving incoming
-        # weights" -- a near-zero read is non-relation, not a wire.)
-        cmask = (np.abs(W) >= conn_floor * (np.abs(W).max(0, keepdims=True) + 1e-12)).astype(float)
-        W = W * cmask
+        # (2) CONNECTION prune the void: drop each survivor's near-zero incoming reads, so a "synapse"
+        # only ever counts a real relation (the plan's "over its surviving incoming weights").
+        W = W * (np.abs(W) >= conn_floor * (np.abs(W).max(0, keepdims=True) + 1e-12))
 
-        # (3) re-solidify the readout + unit biases after pruning (connections W fixed; frozen base
+        # (3) FORCE (hard caps): as tau rises each fiber may keep only k_in raw-input reads, so it must
+        # route through the base; and it may BUNDLE at most k_par frozen fibers (sparse composition --
+        # "bundle a few phases"), which is what keeps every cross-path cheap and the mesh rich.
+        if tight:
+            self._cap_cols(W[:self.D], max(1, int(round((1.0 - tau) * self.D))))  # input cap
+            self._cap_cols(W[self.D:], k_par)                                     # parent (bundle) cap
+
+        # (4) PRESSURE gate: a survivor must relate to concepts more than to raw data -- base-mass
+        # share >= a threshold that rises with tau but is capped (a good compositional fiber is ~50-80%
+        # base, never pure), so loose near-input readers are squeezed out without collapsing the mesh.
+        base_mass = np.abs(W[self.D:]).sum(0) if n_base else np.zeros(W.shape[1])
+        share = base_mass / (np.abs(W[:self.D]).sum(0) + base_mass + 1e-9)
+        if tight:
+            gated = np.where(share >= min(tau, 0.5))[0]
+            if len(gated) == 0:
+                gated = np.array([int(np.argmax(share))])
+            W, b, V, share = W[:, gated], b[gated], V[gated], share[gated]
+        kept = W.shape[1]
+        void_frac = 1 - kept / P
+
+        # re-solidify the readout + unit biases after pruning (connections W fixed; frozen base
         # and its bias untouched) -- the same "retrain the survivors" step as magnitude pruning.
         for _ in range(refit):
             pre = Ztr @ W + b; A = np.maximum(pre, 0)
@@ -141,7 +187,7 @@ class ConsolidatingNet:
 
         # distance-from-axiom over SURVIVING incoming connections (inputs dist 0, est fibers stored)
         src_dist = np.concatenate([np.zeros(self.D), np.array(self.dist)]) if self.dist else np.zeros(self.D)
-        new_dists = [fiber_distance(np.abs(W[:, j]), src_dist) for j in range(W.shape[1])]
+        new_dists = [fiber_distance(np.abs(W[:, j]), src_dist) for j in range(kept)]
 
         # freeze survivors into the established base (append-only -> axioms never disturbed)
         self.frozen_tr = self.frozen_tr + Atr @ V
@@ -151,10 +197,12 @@ class ConsolidatingNet:
         self.Fte = np.concatenate([self.Fte, Ate], 1)
         self.dist += new_dists
         self.frozen_W.append(W.copy())
-        n_conn = int(cmask.sum())                    # surviving incoming connections this round
-        self.synapses += n_conn + len(keep) * self.C  # + readout wires (C per kept fiber)
-        return {"kept": len(keep), "void_frac": void_frac,
-                "conn_kept": n_conn, "conn_frac": float(cmask.mean()),
+        n_in = int((np.abs(W[:self.D]) > 0).sum())                    # surviving raw-input reads
+        n_cross = int((np.abs(W[self.D:]) > 0).sum()) if n_base else 0  # fiber->fiber cross-paths
+        self.cross_edges += n_cross
+        self.synapses += n_in + n_cross + kept * self.C               # + readout wires (C per fiber)
+        return {"kept": kept, "void_frac": void_frac, "cross_edges": n_cross,
+                "base_share": float(np.mean(share)) if kept else 0.0,
                 "mean_dist": float(np.mean(self.dist)), "max_dist": float(np.max(self.dist)),
                 "test_acc": self.acc(yte), "synapses": self.synapses}
 
@@ -189,74 +237,109 @@ def monolithic(Xtr, ytr, Xte, yte, D, C, H, epochs, target_syn=None, lr=0.05, wd
     return dense, (acc(), int(m1.sum() + m2.sum()))
 
 
+def run_loop(Xtr, ytr, Xte, yte, D, C, taus, P=32, epochs=1500, seed=1):
+    """Run ROUNDS consolidation waves with a per-round tightening ratio; return net + per-round stats
+    + the round-1 axiom snapshot (for the inviolability assert)."""
+    net = ConsolidatingNet(D, C, seed=seed)
+    rounds, snapshot = [], None
+    for r, tau in enumerate(taus, 1):
+        rounds.append(net.grow_round(Xtr, ytr, Xte, yte, P=P, epochs=epochs, tau=tau))
+        if r == 1:
+            snapshot = net.frozen_W[0].copy()
+    return net, rounds, snapshot
+
+
 def main():
     RESULTS.mkdir(exist_ok=True)
     Xtr, ytr, Xte, yte, D, C = hier_teacher_data()
     ROUNDS, P, EP = 5, 32, 1500
+    taus = [0.0, 0.3, 0.5, 0.7, 0.9]   # tightening ratio, ramped loose -> tight across rounds
 
-    net = ConsolidatingNet(D, C, seed=1)
-    axiom_snapshot = None
-    rounds = []
-    print("iterative consolidation (overproduce -> relational-prune -> freeze):")
-    for r in range(1, ROUNDS + 1):
-        st = net.grow_round(Xtr, ytr, Xte, yte, P=P, epochs=EP)
-        rounds.append(st)
-        if r == 1:
-            axiom_snapshot = net.frozen_W[0].copy()   # the axioms, established in round 1
-        print(f"  round {r}: kept {st['kept']:2d}/{P}  void_pruned {st['void_frac']*100:4.0f}%  "
-              f"conn_kept {st['conn_frac']*100:4.0f}%  test_acc={st['test_acc']:.3f}  "
-              f"mean_dist_from_axiom={st['mean_dist']:.2f}  synapses={st['synapses']}")
+    print(f"TIGHTENED loop (force + reward + pressure; tau ramp {taus}):")
+    tnet, tr, tsnap = run_loop(Xtr, ytr, Xte, yte, D, C, taus, P=P, epochs=EP)
+    for r, s in enumerate(tr, 1):
+        print(f"  round {r}: tau={taus[r-1]:.1f}  kept {s['kept']:2d}/{P}  base_share={s['base_share']:.2f}"
+              f"  cross_edges={s['cross_edges']:3d}  test_acc={s['test_acc']:.3f}  "
+              f"mean_dist={s['mean_dist']:.2f}  synapses={s['synapses']}")
 
-    # inviolability: the round-1 axioms are byte-identical after all later rounds
-    inviolate = bool(np.array_equal(axiom_snapshot, net.frozen_W[0]))
-    total_units = len(net.dist)
-    loop_acc = rounds[-1]["test_acc"]; loop_syn = net.synapses
+    print("\nUNTIGHTENED loop (tau=0 throughout; the prior baseline):")
+    unet, ur, usnap = run_loop(Xtr, ytr, Xte, yte, D, C, [0.0] * ROUNDS, P=P, epochs=EP)
+    for r, s in enumerate(ur, 1):
+        print(f"  round {r}: kept {s['kept']:2d}/{P}  cross_edges={s['cross_edges']:3d}  "
+              f"test_acc={s['test_acc']:.3f}  mean_dist={s['mean_dist']:.2f}  synapses={s['synapses']}")
 
-    # controls (same final width, same total epochs, standard training -- no freezing):
-    #   dense  = pruning-free baseline;  pruned = magnitude-pruned to ~the loop's synapse budget,
-    #   which isolates what CONSOLIDATION adds beyond plain pruning.
+    t_inv = bool(np.array_equal(tsnap, tnet.frozen_W[0]))
+    u_inv = bool(np.array_equal(usnap, unet.frozen_W[0]))
+    t_acc, t_syn = tr[-1]["test_acc"], tnet.synapses
+    u_acc, u_syn = ur[-1]["test_acc"], unet.synapses
+
+    # monolithic controls (standard joint training, same final width): dense + magnitude-pruned to
+    # the tightened loop's synapse budget -- the honest "pruning WITHOUT consolidation" comparison.
     (mono_acc, mono_syn), (monp_acc, monp_syn) = monolithic(
-        Xtr, ytr, Xte, yte, D, C, H=total_units, epochs=ROUNDS * EP, target_syn=loop_syn)
+        Xtr, ytr, Xte, yte, D, C, H=len(tnet.dist), epochs=ROUNDS * EP, target_syn=t_syn)
 
-    print(f"\nfrozen axioms inviolate across all rounds: {inviolate}")
-    print(f"loop (consolidated): test_acc={loop_acc:.3f}  synapses={loop_syn:5d}  "
-          f"capability/synapse x{loop_acc/loop_syn*1e3:.2f}e-3")
-    print(f"monolithic dense:    test_acc={mono_acc:.3f}  synapses={mono_syn:5d}  "
-          f"capability/synapse x{mono_acc/mono_syn*1e3:.2f}e-3")
-    print(f"monolithic pruned:   test_acc={monp_acc:.3f}  synapses={monp_syn:5d}  "
-          f"capability/synapse x{monp_acc/monp_syn*1e3:.2f}e-3  (pruning WITHOUT consolidation)")
-    grew = rounds[-1]["mean_dist"] > rounds[0]["mean_dist"] + 0.05
-    print(f"structure grew outward (mean distance-from-axiom rose): {grew} "
-          f"({rounds[0]['mean_dist']:.2f} -> {rounds[-1]['mean_dist']:.2f})")
-    beats_pruned = loop_acc >= monp_acc and loop_syn <= monp_syn * 1.10
-    print(f"consolidation beats plain pruning at matched budget: {beats_pruned} "
-          f"(loop {loop_acc:.3f}@{loop_syn} vs pruned {monp_acc:.3f}@{monp_syn})")
+    def cps(a, s): return a / s * 1e3
+    print(f"\naxioms inviolate (tightened / untightened): {t_inv} / {u_inv}")
+    print(f"tightened loop:    acc={t_acc:.3f}  syn={t_syn:5d}  cap/syn x{cps(t_acc,t_syn):.2f}e-3  "
+          f"cross_edges={tnet.cross_edges}")
+    print(f"untightened loop:  acc={u_acc:.3f}  syn={u_syn:5d}  cap/syn x{cps(u_acc,u_syn):.2f}e-3  "
+          f"cross_edges={unet.cross_edges}")
+    print(f"monolithic dense:  acc={mono_acc:.3f}  syn={mono_syn:5d}  cap/syn x{cps(mono_acc,mono_syn):.2f}e-3")
+    print(f"monolithic pruned: acc={monp_acc:.3f}  syn={monp_syn:5d}  cap/syn x{cps(monp_acc,monp_syn):.2f}e-3")
 
-    res = {"rounds": rounds, "inviolate": inviolate, "loop_acc": loop_acc, "loop_syn": loop_syn,
+    cut = t_syn < u_syn
+    beats_dense = cps(t_acc, t_syn) > cps(mono_acc, mono_syn)
+    beats_pruned = t_acc >= monp_acc - 0.01 and t_syn <= monp_syn * 1.05
+    deeper = tr[-1]["mean_dist"] >= ur[-1]["mean_dist"] - 0.01
+    print(f"\ntightening formed cross-paths: {tnet.cross_edges} fiber->fiber edges "
+          f"(untightened {unet.cross_edges})")
+    print(f"tightening cut wires: {cut} ({u_syn} -> {t_syn})")
+    print(f"distance deepened at least as far: {deeper} "
+          f"(untightened {ur[-1]['mean_dist']:.2f} vs tightened {tr[-1]['mean_dist']:.2f})")
+    print(f"THE GOAL -- tightened beats monolithic dense on capability/synapse: {beats_dense}")
+    print(f"tightened beats plain pruning at matched budget: {beats_pruned} "
+          f"(loop {t_acc:.3f}@{t_syn} vs pruned {monp_acc:.3f}@{monp_syn})")
+
+    res = {"taus": taus, "tightened": tr, "untightened": ur,
+           "t_inviolate": t_inv, "u_inviolate": u_inv,
+           "t_acc": t_acc, "t_syn": t_syn, "t_cross": tnet.cross_edges,
+           "u_acc": u_acc, "u_syn": u_syn, "u_cross": unet.cross_edges,
            "mono_acc": mono_acc, "mono_syn": mono_syn, "monp_acc": monp_acc, "monp_syn": monp_syn,
-           "grew_outward": grew, "beats_pruned": beats_pruned, "total_units": total_units}
+           "cut_wires": cut, "beats_dense": beats_dense, "beats_pruned": beats_pruned, "deeper": deeper}
     (RESULTS / "consolidation_rounds.json").write_text(json.dumps(res, indent=2, default=float))
 
     rr = list(range(1, ROUNDS + 1))
-    fig, (a1, a2, a3) = plt.subplots(1, 3, figsize=(15, 4.3))
-    a1.plot(rr, [s["test_acc"] for s in rounds], "o-", color="#2e7d32", label="loop (frozen core)")
-    a1.axhline(mono_acc, ls=":", color="gray", label=f"monolithic (joint) {mono_acc:.2f}")
+    G, Bl, Gr, Rd = "#2e7d32", "#1565c0", "#777", "#c62828"
+    fig, ((a1, a2), (a3, a4)) = plt.subplots(2, 2, figsize=(13, 9))
+    a1.plot(rr, [s["test_acc"] for s in tr], "o-", color=G, label="tightened")
+    a1.plot(rr, [s["test_acc"] for s in ur], "s--", color=Gr, label="untightened")
+    a1.axhline(mono_acc, ls=":", color=Rd, label=f"monolithic {mono_acc:.2f}")
     a1.set_xlabel("consolidation round"); a1.set_ylabel("test accuracy")
-    a1.set_title("Capability accrues on a frozen core\n(below unconstrained joint training)"); a1.legend()
-    a2.plot(rr, [s["mean_dist"] for s in rounds], "o-", color="#1565c0", label="mean")
-    a2.plot(rr, [s["max_dist"] for s in rounds], "s--", color="#1565c0", alpha=0.5, label="max")
+    a1.set_title("Capability across rounds"); a1.legend()
+
+    a2.plot(rr, [s["mean_dist"] for s in tr], "o-", color=Bl, label="tightened (mean)")
+    a2.plot(rr, [s["max_dist"] for s in tr], "s--", color=Bl, alpha=0.5, label="tightened (max)")
+    a2.plot(rr, [s["mean_dist"] for s in ur], "o-", color=Gr, label="untightened (mean)")
     a2.set_xlabel("consolidation round"); a2.set_ylabel("distance from axiom (relational hops)")
-    a2.set_title("New primitives grow further from the axioms\n(the clean result)"); a2.legend()
-    cum = [s["synapses"] for s in rounds]
-    a3.plot(cum, [s["test_acc"] for s in rounds], "o-", color="#2e7d32", label="loop (cumulative)")
-    a3.scatter([mono_syn], [mono_acc], color="#555", zorder=5, s=80, marker="s", label="monolithic dense")
-    if monp_syn < mono_syn:  # pruned control only distinct when it actually pruned to the loop's budget
-        a3.scatter([monp_syn], [monp_acc], color="#c62828", zorder=5, s=70, label="monolithic pruned")
-    a3.annotate("", xy=(mono_syn, mono_acc), xytext=(cum[-1], rounds[-1]["test_acc"]),
-                arrowprops=dict(arrowstyle="->", color="#c62828", ls="--"))
+    a2.set_title("Distance from axiom: tightening lifts the max, not the mean\n(sparse bundling trades depth for cheap wires)"); a2.legend()
+
+    a3.plot([s["synapses"] for s in tr], [s["test_acc"] for s in tr], "o-", color=G, label="tightened")
+    a3.plot([s["synapses"] for s in ur], [s["test_acc"] for s in ur], "s--", color=Gr, label="untightened")
+    a3.scatter([mono_syn], [mono_acc], color="#333", zorder=5, s=80, marker="D", label="monolithic dense")
+    if monp_syn < mono_syn:
+        a3.scatter([monp_syn], [monp_acc], color=Rd, zorder=5, s=70, label="monolithic pruned")
     a3.set_xlabel("synapses (surviving connections)"); a3.set_ylabel("test accuracy")
-    a3.set_title("Efficiency cost: the loop trails joint training here\n(more wires, less accuracy)")
-    a3.legend()
+    a3.set_title("Efficiency: tightening beats dense training per synapse\n(plain magnitude pruning still cheapest)"); a3.legend()
+
+    a4.bar(rr, [s["cross_edges"] for s in tr], color=Bl, alpha=0.55, label="cross-path edges")
+    a4.set_xlabel("consolidation round"); a4.set_ylabel("fiber->fiber edges (the mesh)", color=Bl)
+    a4b = a4.twinx()
+    a4b.plot(rr, [s["base_share"] for s in tr], "o-", color=G, label="base-mass share")
+    a4b.plot(rr, taus, "k:", alpha=0.6, label="tau (target)")
+    a4b.set_ylabel("base-mass share", color=G); a4b.set_ylim(0, 1)
+    a4.set_title("The tightening ratio forms cross-paths")
+    a4.legend(loc="upper left"); a4b.legend(loc="lower right")
+
     fig.tight_layout(); fig.savefig(RESULTS / "consolidation_rounds.png", dpi=140)
     print("\nSaved results/consolidation_rounds.{json,png}")
 

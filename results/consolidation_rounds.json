@@ -1,10 +1,17 @@
 {
-  "rounds": [
+  "taus": [
+    0.0,
+    0.3,
+    0.5,
+    0.7,
+    0.9
+  ],
+  "tightened": [
     {
       "kept": 30,
       "void_frac": 0.0625,
-      "conn_kept": 380,
-      "conn_frac": 0.6333333333333333,
+      "cross_edges": 0,
+      "base_share": 0.0,
       "mean_dist": 1.0,
       "max_dist": 1.0,
       "test_acc": 0.687,
@@ -13,8 +20,60 @@
     {
       "kept": 28,
       "void_frac": 0.125,
-      "conn_kept": 871,
-      "conn_frac": 0.6221428571428571,
+      "cross_edges": 168,
+      "base_share": 0.41415057499527375,
+      "mean_dist": 1.1999347603425459,
+      "max_dist": 1.596272146662879,
+      "test_acc": 0.691,
+      "synapses": 1120
+    },
+    {
+      "kept": 15,
+      "void_frac": 0.53125,
+      "cross_edges": 90,
+      "base_share": 0.5492326839982589,
+      "mean_dist": 1.2933669517057786,
+      "max_dist": 1.716897137076574,
+      "test_acc": 0.694,
+      "synapses": 1411
+    },
+    {
+      "kept": 25,
+      "void_frac": 0.21875,
+      "cross_edges": 150,
+      "base_share": 0.5843588283540094,
+      "mean_dist": 1.4126054308494718,
+      "max_dist": 1.9270585885912674,
+      "test_acc": 0.705,
+      "synapses": 1810
+    },
+    {
+      "kept": 27,
+      "void_frac": 0.15625,
+      "cross_edges": 162,
+      "base_share": 0.7756149762880279,
+      "mean_dist": 1.5576221236654062,
+      "max_dist": 2.228257551662813,
+      "test_acc": 0.697,
+      "synapses": 2134
+    }
+  ],
+  "untightened": [
+    {
+      "kept": 30,
+      "void_frac": 0.0625,
+      "cross_edges": 0,
+      "base_share": 0.0,
+      "mean_dist": 1.0,
+      "max_dist": 1.0,
+      "test_acc": 0.687,
+      "synapses": 500
+    },
+    {
+      "kept": 28,
+      "void_frac": 0.125,
+      "cross_edges": 524,
+      "base_share": 0.5838405038824667,
       "mean_dist": 1.281854036357053,
       "max_dist": 1.74659972586573,
       "test_acc": 0.692,
@@ -23,8 +82,8 @@
     {
       "kept": 28,
       "void_frac": 0.125,
-      "conn_kept": 1271,
-      "conn_frac": 0.581959706959707,
+      "cross_edges": 950,
+      "base_share": 0.7460318063786398,
       "mean_dist": 1.499595122899596,
       "max_dist": 2.0959321459375317,
       "test_acc": 0.689,
@@ -33,8 +92,8 @@
     {
       "kept": 29,
       "void_frac": 0.09375,
-      "conn_kept": 1794,
-      "conn_frac": 0.5836044242029929,
+      "cross_edges": 1435,
+      "base_share": 0.796175412211884,
       "mean_dist": 1.6757530063374584,
       "max_dist": 2.352616799956941,
       "test_acc": 0.706,
@@ -43,22 +102,28 @@
     {
       "kept": 31,
       "void_frac": 0.03125,
-      "conn_kept": 2338,
-      "conn_frac": 0.5586618876941457,
+      "cross_edges": 1970,
+      "base_share": 0.8340617264576108,
       "mean_dist": 1.8281649157530326,
       "max_dist": 2.529778042489091,
       "test_acc": 0.703,
       "synapses": 7238
     }
   ],
-  "inviolate": true,
-  "loop_acc": 0.703,
-  "loop_syn": 7238,
+  "t_inviolate": true,
+  "u_inviolate": true,
+  "t_acc": 0.697,
+  "t_syn": 2134,
+  "t_cross": 570,
+  "u_acc": 0.703,
+  "u_syn": 7238,
+  "u_cross": 4879,
   "mono_acc": 0.727,
-  "mono_syn": 3504,
-  "monp_acc": 0.727,
-  "monp_syn": 3504,
-  "grew_outward": true,
+  "mono_syn": 3000,
+  "monp_acc": 0.731,
+  "monp_syn": 2134,
+  "cut_wires": true,
+  "beats_dense": true,
   "beats_pruned": false,
-  "total_units": 146
+  "deeper": false
 }
