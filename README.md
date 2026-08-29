@@ -36,6 +36,41 @@ python tests/test_phase_native.py && python experiments/seek_scaling.py \
 
 ---
 
+## Also: synaptic pruning → iterative consolidation (the developmental loop)
+
+Two numpy toys (CPU, no API) test the biological thesis — *solidifying memory by pruning
+amplifies capability, and standard training is blind to the structure it builds*:
+
+- **Blindness + amplification** (`experiments/synaptic_pruning.py`). A trained MLP over-produces
+  synapses: on a teacher-student task **50% are removable with test accuracy essentially
+  unchanged**, and capability-per-surviving-synapse rises up to **~40×** as we prune to the
+  structure that matters. On modular addition the same net reaches **100% train / 0% test** — the
+  objective is perfectly satisfied while the model understands nothing (the loss sees only the
+  landing spot). A winning ticket (init + solidified mask) relearns faster than a random subnet of
+  equal sparsity: *the specific structure is the memory* (Lottery Ticket Hypothesis, Frankle &
+  Carbin 2018).
+- **Iterative consolidation** (`experiments/consolidation_rounds.py`). A growing/pruning net runs
+  the loop in waves — **overproduce** candidate fibers → **train** toward the objective (frozen
+  base untouched) → **relational-prune the void** → **freeze** survivors as new primitives.
+  Measured honestly, kill-criteria stated up front:
+  - **Axioms are inviolate** — round-1 survivors are byte-identical after every later round.
+  - **Structure grows outward** — new primitives establish at ever-greater *relational distance
+    from the axioms* (mean **1.00 → 1.83** hops over 5 rounds, max → 2.5), where *distance = the
+    gap/void of non-relation* to the established base.
+  - **The void is real** — 3–12% of overproduced units and ~40% of candidate connections relate
+    to nothing and are pruned every round, at no accuracy cost (blindness, re-observed).
+  - **Honest cost** — on this shallow task consolidation *trades efficiency for inviolability*:
+    the loop reaches 0.703 using 7,238 wires while an unconstrained net of the same width reaches
+    0.727 using 3,504. Consolidation buys frozen, outward-growing structure here — not fewer
+    synapses. Whether it pays off in efficiency needs a task with genuine deep reuse (flagged, not
+    faked).
+
+```bash
+python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py
+```
+
+---
+
 ## KEY RESULT: Exact Solution with Zero Parameters
 
 ### ZkBundleExplicit - Fourier Readout

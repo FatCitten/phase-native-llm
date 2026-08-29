@@ -1,0 +1,64 @@
+{
+  "rounds": [
+    {
+      "kept": 30,
+      "void_frac": 0.0625,
+      "conn_kept": 380,
+      "conn_frac": 0.6333333333333333,
+      "mean_dist": 1.0,
+      "max_dist": 1.0,
+      "test_acc": 0.687,
+      "synapses": 500
+    },
+    {
+      "kept": 28,
+      "void_frac": 0.125,
+      "conn_kept": 871,
+      "conn_frac": 0.6221428571428571,
+      "mean_dist": 1.281854036357053,
+      "max_dist": 1.74659972586573,
+      "test_acc": 0.692,
+      "synapses": 1483
+    },
+    {
+      "kept": 28,
+      "void_frac": 0.125,
+      "conn_kept": 1271,
+      "conn_frac": 0.581959706959707,
+      "mean_dist": 1.499595122899596,
+      "max_dist": 2.0959321459375317,
+      "test_acc": 0.689,
+      "synapses": 2866
+    },
+    {
+      "kept": 29,
+      "void_frac": 0.09375,
+      "conn_kept": 1794,
+      "conn_frac": 0.5836044242029929,
+      "mean_dist": 1.6757530063374584,
+      "max_dist": 2.352616799956941,
+      "test_acc": 0.706,
+      "synapses": 4776
+    },
+    {
+      "kept": 31,
+      "void_frac": 0.03125,
+      "conn_kept": 2338,
+      "conn_frac": 0.5586618876941457,
+      "mean_dist": 1.8281649157530326,
+      "max_dist": 2.529778042489091,
+      "test_acc": 0.703,
+      "synapses": 7238
+    }
+  ],
+  "inviolate": true,
+  "loop_acc": 0.703,
+  "loop_syn": 7238,
+  "mono_acc": 0.727,
+  "mono_syn": 3504,
+  "monp_acc": 0.727,
+  "monp_syn": 3504,
+  "grew_outward": true,
+  "beats_pruned": false,
+  "total_units": 146
+}

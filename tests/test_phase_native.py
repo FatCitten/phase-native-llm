@@ -212,9 +212,41 @@ def test_lucid_fuzzy():
     check("abstains on a never-stored claim", u.status == "unknown")
 
 
+def test_consolidation():
+    print("Iterative consolidation: inviolate axioms, void-prune, distance grows outward")
+    from experiments.consolidation_rounds import (
+        ConsolidatingNet, fiber_distance, hier_teacher_data)
+
+    # (a) the 'further from axiom' formula, scripted and deterministic
+    check("a fiber reading only inputs sits at distance 1",
+          abs(fiber_distance(np.array([1.0, 1.0, 0.0]), np.array([0.0, 0.0, 0.0])) - 1.0) < 1e-6)
+    check("a fiber bundling a distance-2 primitive lands at distance 3",
+          abs(fiber_distance(np.array([0.0, 0.0, 1.0]), np.array([0.0, 0.0, 2.0])) - 3.0) < 1e-6)
+    d_near = fiber_distance(np.array([3.0, 1.0]), np.array([0.0, 2.0]))  # weight mostly on the input
+    d_far = fiber_distance(np.array([1.0, 3.0]), np.array([0.0, 2.0]))   # weight mostly on the far src
+    check("leaning on further sources monotonically increases distance", d_far > d_near)
+
+    # (b) a short real loop: void pruned, axioms inviolate, structure grows outward
+    Xtr, ytr, Xte, yte, D, C = hier_teacher_data(N=1500, ntr=1100, seed=0)
+    net = ConsolidatingNet(D, C, seed=1)
+    r1 = net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, floor=0.5, conn_floor=0.35, refit=150)
+    axiom = net.frozen_W[0].copy()  # the round-1 axioms
+    stats = [r1]
+    for _ in range(3):
+        stats.append(net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, conn_floor=0.35, refit=150))
+    check("overproduced candidates are pruned as void (kept < P)", 1 <= r1["kept"] < 16)
+    check("connection-pruning drops non-relating incoming wires (conn_frac < 1)", r1["conn_frac"] < 1.0)
+    check("round-1 axioms are byte-identical after all later rounds",
+          np.array_equal(axiom, net.frozen_W[0]))
+    check("the frozen base only ever grows (append-only)",
+          len(net.frozen_W) == 4 and len(net.dist) > r1["kept"])
+    check("structure grows outward (mean distance-from-axiom rises past round 1)",
+          stats[-1]["mean_dist"] > stats[0]["mean_dist"] + 0.05)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
-              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy):
+              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation):
         t()
     print()
     if _failures:
