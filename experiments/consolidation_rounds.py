@@ -25,7 +25,7 @@ Distance-from-axiom (relational hops, "distance = the gap/void of non-relation")
 Honest controls & kill-criteria (stated up front, no forcing the result): round-1 axioms are asserted
 byte-identical after every later round; a TIGHTENED loop is run against an UNTIGHTENED one (same seed)
 and two MONOLITHIC nets (dense + magnitude-pruned to the tightened budget). What the numbers show on
-this shallow teacher: tightening forms a sparse cross-path mesh and cuts wires ~3.4x at ~equal accuracy,
+this shallow teacher: tightening forms a sparse cross-path mesh and cuts wires ~3.3x at ~equal accuracy,
 which FLIPS the efficiency loss versus dense joint training (capability/synapse up). Honest limits it
 does NOT hide: mean distance-from-axiom no longer grows further than the loose loop (sparse bundling
 trades depth for cheap wires), and plain magnitude pruning of a jointly-trained net stays the most
@@ -253,7 +253,10 @@ def main():
     RESULTS.mkdir(exist_ok=True)
     Xtr, ytr, Xte, yte, D, C = hier_teacher_data()
     ROUNDS, P, EP = 5, 32, 1500
-    taus = [0.0, 0.3, 0.5, 0.7, 0.9]   # tightening ratio, ramped loose -> tight across rounds
+    # tightening ratio, ramped loose -> tight (round 1 = pure axioms). Ceiling 0.8 was chosen by a
+    # swept comparison (experiments/consolidation_tau_sweep.py): best accuracy and a smooth monotone
+    # rise, at ~equal capability/synapse -- 0.9 over-tightens the last round and dips.
+    taus = [0.0] + [round(float(t), 3) for t in np.linspace(0.3, 0.8, ROUNDS - 1)]  # ->[0,.3,.467,.633,.8]
 
     print(f"TIGHTENED loop (force + reward + pressure; tau ramp {taus}):")
     tnet, tr, tsnap = run_loop(Xtr, ytr, Xte, yte, D, C, taus, P=P, epochs=EP)

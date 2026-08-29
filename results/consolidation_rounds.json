@@ -2,9 +2,9 @@
   "taus": [
     0.0,
     0.3,
-    0.5,
-    0.7,
-    0.9
+    0.467,
+    0.633,
+    0.8
   ],
   "tightened": [
     {
@@ -28,34 +28,34 @@
       "synapses": 1120
     },
     {
-      "kept": 15,
-      "void_frac": 0.53125,
-      "cross_edges": 90,
-      "base_share": 0.5492326839982589,
-      "mean_dist": 1.2933669517057786,
-      "max_dist": 1.716897137076574,
-      "test_acc": 0.694,
-      "synapses": 1411
+      "kept": 17,
+      "void_frac": 0.46875,
+      "cross_edges": 102,
+      "base_share": 0.534314365455667,
+      "mean_dist": 1.2974682002316233,
+      "max_dist": 1.7052375260763182,
+      "test_acc": 0.695,
+      "synapses": 1458
     },
     {
-      "kept": 25,
-      "void_frac": 0.21875,
-      "cross_edges": 150,
-      "base_share": 0.5843588283540094,
-      "mean_dist": 1.4126054308494718,
-      "max_dist": 1.9270585885912674,
-      "test_acc": 0.705,
-      "synapses": 1810
+      "kept": 23,
+      "void_frac": 0.28125,
+      "cross_edges": 138,
+      "base_share": 0.5639843663820832,
+      "mean_dist": 1.3984483461623012,
+      "max_dist": 1.9554181835605606,
+      "test_acc": 0.7,
+      "synapses": 1846
     },
     {
-      "kept": 27,
-      "void_frac": 0.15625,
-      "cross_edges": 162,
-      "base_share": 0.7756149762880279,
-      "mean_dist": 1.5576221236654062,
-      "max_dist": 2.228257551662813,
-      "test_acc": 0.697,
-      "synapses": 2134
+      "kept": 26,
+      "void_frac": 0.1875,
+      "cross_edges": 156,
+      "base_share": 0.6676882017892587,
+      "mean_dist": 1.5093370699285489,
+      "max_dist": 2.0987849059129653,
+      "test_acc": 0.708,
+      "synapses": 2210
     }
   ],
   "untightened": [
@@ -112,16 +112,16 @@
   ],
   "t_inviolate": true,
   "u_inviolate": true,
-  "t_acc": 0.697,
-  "t_syn": 2134,
-  "t_cross": 570,
+  "t_acc": 0.708,
+  "t_syn": 2210,
+  "t_cross": 564,
   "u_acc": 0.703,
   "u_syn": 7238,
   "u_cross": 4879,
-  "mono_acc": 0.727,
-  "mono_syn": 3000,
-  "monp_acc": 0.731,
-  "monp_syn": 2134,
+  "mono_acc": 0.733,
+  "mono_syn": 2976,
+  "monp_acc": 0.735,
+  "monp_syn": 2210,
   "cut_wires": true,
   "beats_dense": true,
   "beats_pruned": false,

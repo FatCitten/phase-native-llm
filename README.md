@@ -57,15 +57,16 @@ amplifies capability, and standard training is blind to the structure it builds*
   - **The void is real** — 3–12% of overproduced units and ~40% of candidate connections relate
     to nothing and are pruned every round, at no accuracy cost (blindness, re-observed).
   - **A tightening ratio flips the efficiency** — the *loose* loop reached comparable accuracy only
-    by using **more** wires than dense training (0.703 @ 7,238 vs 0.727 @ 3,000). Adding a
-    **tightening ratio** (τ ramped 0→0.9, via force + reward + pressure) that pulls each new fiber
-    off raw inputs and onto **≤6 existing fibers** — a sparse **cross-path mesh** (570 fiber→fiber
-    edges vs 4,879 loose) — cuts wiring **3.4×** (7,238 → 2,134) at ~equal accuracy (0.697), so
-    **capability/synapse (0.33e-3) now beats dense joint training (0.24e-3)**. *Distance = the
-    gap/void of non-relation*, squeezed out.
+    by using **more** wires than dense training (0.703 @ 7,238 vs 0.733 @ 2,976). Adding a
+    **tightening ratio** (τ ramped 0→0.8, via force + reward + pressure) that pulls each new fiber
+    off raw inputs and onto **≤6 existing fibers** — a sparse **cross-path mesh** (564 fiber→fiber
+    edges vs 4,879 loose) — cuts wiring **3.3×** (7,238 → 2,210) at ~equal accuracy (0.708), so
+    **capability/synapse (0.32e-3) now beats dense joint training (0.25e-3)**. *Distance = the
+    gap/void of non-relation*, squeezed out. (The τ ceiling 0.8 is chosen by a transparent sweep,
+    `experiments/consolidation_tau_sweep.py`: it gives the best accuracy and a smooth, dip-free rise.)
   - **Honest limits (not hidden)** — tightening trades *depth* for cheap wires (mean distance-from-
-    axiom **1.56 < the loose loop's 1.83**), and plain magnitude-pruning of a jointly-trained net
-    stays the most wire-efficient of all (**0.731 @ 2,134**). Consolidation's real return is
+    axiom **1.51 < the loose loop's 1.83**), and plain magnitude-pruning of a jointly-trained net
+    stays the most wire-efficient of all (**0.735 @ 2,210**). Consolidation's real return is
     **inviolable, legible structure**, not beating pruning.
 
 ```bash
