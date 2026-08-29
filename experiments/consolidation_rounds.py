@@ -93,6 +93,7 @@ class ConsolidatingNet:
         self.bias = np.zeros(C)
         self.dist = []                # distance-from-axiom of each established fiber
         self.frozen_W = []            # kept incoming weights (for the inviolability assert)
+        self.frozen_V = []            # kept readout weights per round (for least-path-of-resistance traces)
         self.synapses = 0             # cumulative synapses committed
         self.cross_edges = 0          # cumulative fiber->fiber connections (the cross-path mesh)
 
@@ -113,8 +114,22 @@ class ConsolidatingNet:
         logits = (self.frozen_te if which == "te" else self.frozen_tr) + self.bias
         return float((logits.argmax(1) == y).mean())
 
+    def seed_base(self, Ftr, Fte, dist, frozen_W=None):
+        """Preload a shared frozen SPINE as this net's established base. New fibers then reuse it via
+        cheap cross-paths (the 'least path of resistance up the stem'), with no readout yet for this
+        task -- so growing a branch here never disturbs the spine or any sibling branch."""
+        self.Ftr = np.asarray(Ftr, float); self.Fte = np.asarray(Fte, float)
+        self.frozen_tr = np.zeros((self.Ftr.shape[0], self.C))
+        self.frozen_te = np.zeros((self.Fte.shape[0], self.C))
+        self.bias = np.zeros(self.C)
+        self.dist = list(dist)
+        self.frozen_W = [np.asarray(w, float) for w in frozen_W] if frozen_W else []
+        self.frozen_V = []
+        self.spine_width = self.Ftr.shape[1]
+        return self
+
     def grow_round(self, Xtr, ytr, Xte, yte, P=32, epochs=1500, lr=0.05, wd=1e-4,
-                   floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6):
+                   floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6, prune_density=None):
         """One consolidation wave. `tau` in [0,1) is the TIGHTENING RATIO: the target share of a new
         fiber's incoming weight-mass that must land on the frozen base (cross-paths) rather than raw
         inputs. tau ramps up across rounds to pull the concept-lines into one another. `k_par` bounds
@@ -175,6 +190,14 @@ class ConsolidatingNet:
         kept = W.shape[1]
         void_frac = 1 - kept / P
 
+        # (5) SNIP the loose threads (magnitude pruning as a feature): keep only the strongest surviving
+        # connections and drop the loosely-hanging ones, so only the cheapest paths remain. The refit
+        # below re-solidifies the readout over what survives (the same retrain-after-prune step).
+        if prune_density is not None and prune_density < 1.0 and kept:
+            nz = np.abs(W[W != 0])
+            if nz.size:
+                W = W * (np.abs(W) >= np.quantile(nz, 1.0 - prune_density))
+
         # re-solidify the readout + unit biases after pruning (connections W fixed; frozen base
         # and its bias untouched) -- the same "retrain the survivors" step as magnitude pruning.
         for _ in range(refit):
@@ -197,6 +220,7 @@ class ConsolidatingNet:
         self.Fte = np.concatenate([self.Fte, Ate], 1)
         self.dist += new_dists
         self.frozen_W.append(W.copy())
+        self.frozen_V.append(V.copy())
         n_in = int((np.abs(W[:self.D]) > 0).sum())                    # surviving raw-input reads
         n_cross = int((np.abs(W[self.D:]) > 0).sum()) if n_base else 0  # fiber->fiber cross-paths
         self.cross_edges += n_cross

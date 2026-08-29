@@ -64,13 +64,26 @@ amplifies capability, and standard training is blind to the structure it builds*
     **capability/synapse (0.32e-3) now beats dense joint training (0.25e-3)**. *Distance = the
     gap/void of non-relation*, squeezed out. (The τ ceiling 0.8 is chosen by a transparent sweep,
     `experiments/consolidation_tau_sweep.py`: it gives the best accuracy and a smooth, dip-free rise.)
-  - **Honest limits (not hidden)** — tightening trades *depth* for cheap wires (mean distance-from-
-    axiom **1.51 < the loose loop's 1.83**), and plain magnitude-pruning of a jointly-trained net
-    stays the most wire-efficient of all (**0.735 @ 2,210**). Consolidation's real return is
-    **inviolable, legible structure**, not beating pruning.
+  - **Honest limits (not hidden)** — on a *single* task tightening trades *depth* for cheap wires
+    (mean distance-from-axiom **1.51 < the loose loop's 1.83**), and plain magnitude-pruning of a
+    jointly-trained net stays the most wire-efficient of all (**0.735 @ 2,210**). Consolidation's
+    return there is inviolable, legible structure — *not* beating pruning. The win comes with breadth:
+- **Multiple teachers on one spine** (`experiments/multi_teacher.py`). Give several teachers that
+  **share** low-level primitives, and consolidation builds one shared frozen **spine** (learned once)
+  with a cheap magnitude-pruned **branch** per teacher — inference is a **least path of resistance**
+  up the stem into a branch (the figure traces one). Here consolidation **beats plain pruning** on
+  both axes:
+  - **Reuse** — 4 teachers at **mean 0.760** using **1,875** wires vs a monolithic multi-task net
+    pruned to the *same* budget at **0.685** (**+7.5 pts** — shared primitives amortize instead of
+    being duplicated).
+  - **No forgetting ("conquering confusion")** — tasks added one at a time: each frozen branch is
+    isolated, so task-0 accuracy is preserved **exactly (0.761 → 0.761 → 0.761 → 0.761)**, while a
+    fine-tuned monolithic control **collapses 0.84 → 0.24**. Interference a shared-weight net cannot
+    avoid, the frozen spine sidesteps by construction.
 
 ```bash
-python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py
+python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py \
+  && python experiments/multi_teacher.py
 ```
 
 ---

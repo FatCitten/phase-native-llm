@@ -262,9 +262,39 @@ def test_consolidation():
           tt.synapses < uu.synapses)
 
 
+def test_multi_teacher():
+    print("Multiple teachers on one spine: prune-as-feature, reuse, no-forgetting, LPR trace")
+    import experiments.multi_teacher as mt
+    from experiments.consolidation_rounds import ConsolidatingNet
+
+    Xtr, Ytr, Xte, Yte, D, C, T = mt.shared_primitive_teachers(T=3, N=900, ntr=680, seed=0)
+
+    # (a) integral magnitude prune (snip loose threads) cuts wiring
+    a = ConsolidatingNet(D, C, seed=1); ra = a.grow_round(Xtr, Ytr[:, 0], Xte, Yte[:, 0], P=16, epochs=200, tau=0.5)
+    b = ConsolidatingNet(D, C, seed=1); rb = b.grow_round(Xtr, Ytr[:, 0], Xte, Yte[:, 0], P=16, epochs=200, tau=0.5, prune_density=0.5)
+    check("snipping loose threads (prune_density) cuts wiring", rb["synapses"] < ra["synapses"])
+
+    # (b) shared spine + isolated branches -> exact no-forgetting + reuse
+    spine = mt.build_spine(Xtr, Ytr[:, 0], Xte, Yte[:, 0], D, C, P=16, EP=200)
+    sw = len(spine.dist)
+    br0 = mt.grow_branch(spine, Xtr, Ytr[:, 0], Xte, Yte[:, 0], D, C, P=16, EP=200, seed=10)
+    W0, acc0 = br0.frozen_W[-1].copy(), br0.acc(Yte[:, 0])
+    _ = mt.grow_branch(spine, Xtr, Ytr[:, 1], Xte, Yte[:, 1], D, C, P=16, EP=200, seed=11)
+    check("adding a new teacher leaves the prior branch byte-identical (no forgetting)",
+          np.array_equal(W0, br0.frozen_W[-1]) and br0.acc(Yte[:, 0]) == acc0)
+    check("a branch reuses the shared spine (bundles spine fibers via cross-paths)",
+          int((np.abs(br0.frozen_W[-1][D:]) > 0).sum()) > 0 and br0.spine_width == sw)
+
+    # (c) least-path-of-resistance trace is a valid output -> ... -> input walk
+    path, pred = mt.trace_lpr(br0, spine, Xte[0], 0, D)
+    check("LPR trace starts at a branch fiber and ends at an input",
+          path[0][0] == "branch" and path[-1][0] == "input" and len(path) >= 2)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
-              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation):
+              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
+              test_multi_teacher):
         t()
     print()
     if _failures:
