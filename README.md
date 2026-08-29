@@ -80,10 +80,25 @@ amplifies capability, and standard training is blind to the structure it builds*
     isolated, so task-0 accuracy is preserved **exactly (0.761 → 0.761 → 0.761 → 0.761)**, while a
     fine-tuned monolithic control **collapses 0.84 → 0.24**. Interference a shared-weight net cannot
     avoid, the frozen spine sidesteps by construction.
+- **Growing, self-specializing, graftable brains** (`experiments/spine_growth.py`). The spine is not
+  built once — it **grows** as teachers arrive, admitting a new block only if **both gates** pass
+  (shared across ≥2 teachers *and* geometrically balanced *and* opening a new subspace direction), and
+  brains **graft**. Three cores, two clean wins and one honest negative:
+  - **Growth** — the balance-gated spine grows while later teachers **reuse it more and more (reuse
+    fraction 0 → 0.57)** at held accuracy. But efficiency does **not** beat the no-promotion baseline:
+    forced reuse causes *negative transfer* (a branch reuses a partial spine and under-builds), shown
+    honestly, not hidden.
+  - **Shortcut node** — a self-specializing distance-1 node distills a hot **distance-2** spine fiber
+    (**r² = 0.87**), halving the least-path-of-resistance at preserved accuracy: the node "shortens
+    resistance in the spine."
+  - **Grafting (small + small = big)** — two brains trained on disjoint input halves graft into one; a
+    cross task needing **both** is solved by the graft at **0.91** while either brain alone reaches only
+    **~0.60** and from-scratch **0.31** — and *each source brain is preserved byte-for-byte* (the
+    "sacred relationship to source, preserved by structure").
 
 ```bash
 python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py \
-  && python experiments/multi_teacher.py
+  && python experiments/multi_teacher.py && python experiments/spine_growth.py
 ```
 
 ---

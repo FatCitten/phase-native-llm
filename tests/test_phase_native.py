@@ -291,10 +291,49 @@ def test_multi_teacher():
           path[0][0] == "branch" and path[-1][0] == "input" and len(path) >= 2)
 
 
+def test_spine_growth():
+    print("Spine growth: balance gates, append-only growth, shortcut node, grafting two brains")
+    import experiments.spine_growth as sg
+
+    # (a) the admission gates
+    check("gate_balanced rejects a single dominating parent, accepts a spread block",
+          (not sg.gate_balanced(np.array([5.0, 0.02, 0.0]))) and sg.gate_balanced(np.array([1.0, 1.0, 1.0])))
+    rng = np.random.default_rng(0); base = rng.normal(0, 1, (60, 3))
+    check("subspace-novelty admits a new direction, rejects a near-duplicate",
+          sg.is_novel(rng.normal(0, 1, 60), base) and not sg.is_novel(base[:, 0] * 1.001 + 1e-6, base))
+
+    # (b) sequential growth is append-only (a promoted block is never disturbed)
+    Xtr, Ytr, Xte, Yte, D, C, T, _ = sg.growing_teachers(T=4, prim=6, k=4, N=800, ntr=600, seed=0)
+    g = sg.grow_sequentially(Xtr, Ytr, Xte, Yte, D, C, T, promote=True, P=12, EP=150)
+    check("the spine only ever grows (widths non-decreasing)",
+          all(g["widths"][i] <= g["widths"][i + 1] for i in range(T - 1)))
+    check("later teachers reuse the spine (reuse fraction rises above zero)", max(g["reuses"]) > 0.1)
+
+    # (c) a self-specializing node distills a deep fiber and shortens the path
+    sc = sg.distill_shortcut(g["spine"], Xtr, Xte)
+    check("shortcut node reproduces the deep fiber (r2 > 0.3) and shortens the path",
+          sc["r2"] > 0.3 and sc["dist_saved"] > 0)
+
+    # (d) grafting two brains: sources preserved, cross-brain edges, beats either brain alone
+    XAtr, XAte, yAtr, yAte, yBtr, yBte, ycr, ycrte, D3, C3, half = sg.two_brain_teachers(N=900, ntr=680, seed=1)
+    def mask(X, s):
+        Z = X.copy(); Z[:, half:] = 0.0 if s == "L" else Z[:, half:]; Z[:, :half] = 0.0 if s == "R" else Z[:, :half]; return Z
+    A = sg.build_bank(mask(XAtr, "L"), yAtr, mask(XAte, "L"), yAte, D3, C3, seed=2, P=16, EP=200)
+    B = sg.build_bank(mask(XAtr, "R"), yBtr, mask(XAte, "R"), yBte, D3, C3, seed=3, P=16, EP=200)
+    Asnap = A.Ftr.copy()
+    graft, eA, eB = sg.graft_brains(A, B, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    check("grafting preserves both source brains byte-for-byte", np.array_equal(Asnap, A.Ftr))
+    check("the graft bundles BOTH brains (cross-brain edges on each side)", eA > 0 and eB > 0)
+    accA = sg.solo_acc(A, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    accB = sg.solo_acc(B, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    check("the graft beats what either brain alone can do on the cross task",
+          graft.acc(ycrte) > max(accA, accB))
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
-              test_multi_teacher):
+              test_multi_teacher, test_spine_growth):
         t()
     print()
     if _failures:
