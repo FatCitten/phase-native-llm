@@ -1,0 +1,10 @@
+{
+  "n_pairs": 10,
+  "grep_recall": 0,
+  "lucid_recall": 10,
+  "lucid_abstain": 0,
+  "grep_false_confident": 0,
+  "lucid_false_confident": 0,
+  "near_collision_confab": 1,
+  "n_distractors": 5
+}

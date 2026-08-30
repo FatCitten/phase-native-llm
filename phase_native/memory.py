@@ -44,6 +44,7 @@ class PhaseNuggetMemory:
     moduli: tuple[int, ...] = (8, 9, 5, 7)
     reps: int = 512
     min_confidence: float = 0.45
+    min_margin: float = 0.0  # abstain if top-1 and runner-up are within this gap (near-tie guard)
 
     def __post_init__(self) -> None:
         self.values = CRTValueCodebook(self.moduli, self.reps)
@@ -94,33 +95,43 @@ class PhaseNuggetMemory:
         return vid
 
     def recall(self, cue: str, mode: str = "cleanup") -> RecallResult:
-        """Associative seek. Retrieval (unbind) is O(dim) -> constant in N (nuggets stored).
+        """Associative seek by a string cue (hashed to a decorrelated key). O(dim) in N.
 
-        mode="cleanup" (default): decode by matched filter over the value alphabet
-            (O(V) in the answer vocabulary, still O(1) in N). Higher capacity, and its
-            normalized score is a real confidence -> lets the LLM verify low-confidence
-            recalls. This is what the agent uses.
-        mode="crt": decode by per-channel CRT residues (O(dim), constant in BOTH N and V
-            -> strict O(1)). Lower capacity; used by the seek benchmark to show the
-            time/capacity tradeoff.
-
-        Confidence is the normalized matched-filter score Re<value(vid), est>/dim:
-        ~1.0 for a clean hit, ~0.3 for noise (an unwritten cue), across the gate.
+        mode="cleanup" (default): matched-filter decode over the value alphabet — O(V) in the
+            answer vocabulary, still O(1) in N; its normalized score is a real confidence.
+        mode="crt": per-channel CRT residue decode — O(dim), constant in N and V. Lower capacity.
+        Confidence = normalized score Re<value(vid), est>/dim (~1.0 clean hit, ~0.3 noise).
         """
-        est = unbind(self.M, key_vector(cue, self.dim))
+        return self.recall_key(key_vector(cue, self.dim), mode)
+
+    def recall_key(self, key: np.ndarray, mode: str = "cleanup") -> RecallResult:
+        """Recall from a key VECTOR directly (fuzzy/semantic cues supply their own key)."""
+        est = unbind(self.M, key)
+        margin_ok = True
         if mode == "crt":
             vid = self.values.decode(est)
         elif mode == "cleanup":
             cb = self._cleanup_codebook()
             if cb.shape[0] == 0:
                 return RecallResult(False, None, -1, 0.0)
-            vid = int(np.argmax(np.real(cb @ np.conjugate(est))))
+            scores = np.real(cb @ np.conjugate(est)) / self.dim
+            order = np.argsort(scores)[::-1]
+            vid = int(order[0])
+            if self.min_margin > 0 and len(order) > 1:
+                # two stored items match almost equally -> ambiguous -> abstain, don't invert
+                margin_ok = (scores[order[0]] - scores[order[1]]) >= self.min_margin
         else:
             raise ValueError(f"unknown recall mode {mode!r}")
         confidence = float(np.real(np.vdot(self.values.encode(vid), est)) / self.dim)
         payload = self._id2payload.get(vid)
-        hit = payload is not None and confidence >= self.min_confidence
+        hit = payload is not None and confidence >= self.min_confidence and margin_ok
         return RecallResult(hit=hit, payload=payload, value_id=vid, confidence=confidence)
+
+    def write_key(self, key: np.ndarray, conclusion) -> int:
+        """Solidify (key vector -> conclusion) into M. Used by fuzzy/semantic cue layers."""
+        vid = self._value_id(conclusion)
+        self.M += bind(key, self.values.encode(vid))
+        return vid
 
     def forget(self, cue: str) -> bool:
         """Algebraic edit: subtract exactly this cue's binding out of M."""

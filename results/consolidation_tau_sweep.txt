@@ -1,0 +1,10 @@
+untightened baseline: acc=0.703  syn=7238  cap/syn=0.097e-3  dist=1.83
+
+ceiling    acc    syn   cap/syn  dist  cross  per-round acc                     pruned@budget
+    0.5  0.692   2556   0.271e-3  1.44    588  0.687 0.691 0.695 0.697 0.692     0.741@2556
+    0.6  0.698   2350   0.297e-3  1.45    546  0.687 0.691 0.698 0.696 0.698     0.733@2350
+    0.7  0.699   2409   0.290e-3  1.48    594  0.687 0.691 0.695 0.698 0.699     0.731@2409
+    0.8  0.708   2210   0.320e-3  1.51    564  0.687 0.691 0.695 0.700 0.708     0.735@2210
+    0.9  0.697   2134   0.327e-3  1.56    570  0.687 0.691 0.694 0.705 0.697     0.731@2134
+
+chosen ceiling: c=0.8 (acc=0.708, syn=2210, cap/syn=0.320e-3) -- best accuracy with a smooth, dip-free rise. Every ceiling beats dense per synapse; none beats plain pruning.

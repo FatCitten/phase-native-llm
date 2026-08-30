@@ -197,9 +197,204 @@ def test_ollama_agent_plumbing():
           res.output_tokens == 20 and res.input_tokens == 40)
 
 
+def test_lucid_fuzzy():
+    print("Fuzzy verify-before-assert (LucidMemory)")
+    from phase_native.lucid_guard import LucidMemory
+
+    lm = LucidMemory(reps=1024)
+    lm.commit("the migration must run before deploy because the new column is non-nullable")
+    lm.commit("rate limiting is enforced per api key not per ip address")
+    v = lm.verify("run the migration prior to deploying, the added column is non nullable")
+    check("recalls a paraphrase exact grep would miss",
+          v.status == "recalled" and "migration" in str(v.statement))
+    check("a recall carries a re-derivable receipt", v.receipt is not None and "residues" in v.receipt)
+    u = lm.verify("the frontend uses tailwind for styling")
+    check("abstains on a never-stored claim", u.status == "unknown")
+
+
+def test_consolidation():
+    print("Iterative consolidation: inviolate axioms, void-prune, tightening cross-paths")
+    from experiments.consolidation_rounds import (
+        ConsolidatingNet, fiber_distance, hier_teacher_data)
+
+    # (a) the 'further from axiom' formula, scripted and deterministic
+    check("a fiber reading only inputs sits at distance 1",
+          abs(fiber_distance(np.array([1.0, 1.0, 0.0]), np.array([0.0, 0.0, 0.0])) - 1.0) < 1e-6)
+    check("a fiber bundling a distance-2 primitive lands at distance 3",
+          abs(fiber_distance(np.array([0.0, 0.0, 1.0]), np.array([0.0, 0.0, 2.0])) - 3.0) < 1e-6)
+    d_near = fiber_distance(np.array([3.0, 1.0]), np.array([0.0, 2.0]))  # weight mostly on the input
+    d_far = fiber_distance(np.array([1.0, 3.0]), np.array([0.0, 2.0]))   # weight mostly on the far src
+    check("leaning on further sources monotonically increases distance", d_far > d_near)
+
+    Xtr, ytr, Xte, yte, D, C = hier_teacher_data(N=1500, ntr=1100, seed=0)
+
+    # (b) a short LOOSE loop (tau=0): void pruned, axioms inviolate, structure grows outward
+    net = ConsolidatingNet(D, C, seed=1)
+    r1 = net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, floor=0.5, conn_floor=0.35, refit=150)
+    axiom = net.frozen_W[0].copy()  # the round-1 axioms
+    stats = [r1]
+    for _ in range(3):
+        stats.append(net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, conn_floor=0.35, refit=150))
+    check("overproduced candidates are pruned as void (kept < P)", 1 <= r1["kept"] < 16)
+    check("round-1 axioms are byte-identical after all later rounds",
+          np.array_equal(axiom, net.frozen_W[0]))
+    check("the frozen base only ever grows (append-only)",
+          len(net.frozen_W) == 4 and len(net.dist) > r1["kept"])
+    check("structure grows outward (mean distance-from-axiom rises past round 1)",
+          stats[-1]["mean_dist"] > stats[0]["mean_dist"] + 0.05)
+
+    # (c) the TIGHTENING RATIO pulls concept-lines into a sparse cross-path mesh, cutting wiring
+    def mini(sched, seed=2):
+        nt = ConsolidatingNet(D, C, seed=seed)
+        hs = [nt.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=300, tau=t) for t in sched]
+        return nt, hs
+    tt, th = mini([0.0, 0.3, 0.5, 0.7])
+    uu, _ = mini([0.0, 0.0, 0.0, 0.0])
+    check("tightening forms cross-paths once a base exists (fiber->fiber edges appear)",
+          th[1]["cross_edges"] > 0 and tt.cross_edges > 0)
+    check("each new fiber stays sparsely bundled (<= k_par=6 parents)",
+          all(s["cross_edges"] <= 6 * s["kept"] for s in th))
+    check("survivors meet the tightening ratio (base-mass share tracks the ramp)",
+          th[-1]["base_share"] >= 0.4)
+    check("the tightened mesh is sparser than the loose one (fewer total edges)",
+          tt.cross_edges < uu.cross_edges)
+    check("tightening cuts total wiring vs the untightened loop (same seed)",
+          tt.synapses < uu.synapses)
+
+
+def test_multi_teacher():
+    print("Multiple teachers on one spine: prune-as-feature, reuse, no-forgetting, LPR trace")
+    import experiments.multi_teacher as mt
+    from experiments.consolidation_rounds import ConsolidatingNet
+
+    Xtr, Ytr, Xte, Yte, D, C, T = mt.shared_primitive_teachers(T=3, N=900, ntr=680, seed=0)
+
+    # (a) integral magnitude prune (snip loose threads) cuts wiring
+    a = ConsolidatingNet(D, C, seed=1); ra = a.grow_round(Xtr, Ytr[:, 0], Xte, Yte[:, 0], P=16, epochs=200, tau=0.5)
+    b = ConsolidatingNet(D, C, seed=1); rb = b.grow_round(Xtr, Ytr[:, 0], Xte, Yte[:, 0], P=16, epochs=200, tau=0.5, prune_density=0.5)
+    check("snipping loose threads (prune_density) cuts wiring", rb["synapses"] < ra["synapses"])
+
+    # (b) shared spine + isolated branches -> exact no-forgetting + reuse
+    spine = mt.build_spine(Xtr, Ytr[:, 0], Xte, Yte[:, 0], D, C, P=16, EP=200)
+    sw = len(spine.dist)
+    br0 = mt.grow_branch(spine, Xtr, Ytr[:, 0], Xte, Yte[:, 0], D, C, P=16, EP=200, seed=10)
+    W0, acc0 = br0.frozen_W[-1].copy(), br0.acc(Yte[:, 0])
+    _ = mt.grow_branch(spine, Xtr, Ytr[:, 1], Xte, Yte[:, 1], D, C, P=16, EP=200, seed=11)
+    check("adding a new teacher leaves the prior branch byte-identical (no forgetting)",
+          np.array_equal(W0, br0.frozen_W[-1]) and br0.acc(Yte[:, 0]) == acc0)
+    check("a branch reuses the shared spine (bundles spine fibers via cross-paths)",
+          int((np.abs(br0.frozen_W[-1][D:]) > 0).sum()) > 0 and br0.spine_width == sw)
+
+    # (c) least-path-of-resistance trace is a valid output -> ... -> input walk
+    path, pred = mt.trace_lpr(br0, spine, Xte[0], 0, D)
+    check("LPR trace starts at a branch fiber and ends at an input",
+          path[0][0] == "branch" and path[-1][0] == "input" and len(path) >= 2)
+
+
+def test_spine_growth():
+    print("Spine growth: balance gates, append-only growth, shortcut node, grafting two brains")
+    import experiments.spine_growth as sg
+
+    # (a) the admission gates
+    check("gate_balanced rejects a single dominating parent, accepts a spread block",
+          (not sg.gate_balanced(np.array([5.0, 0.02, 0.0]))) and sg.gate_balanced(np.array([1.0, 1.0, 1.0])))
+    rng = np.random.default_rng(0); base = rng.normal(0, 1, (60, 3))
+    check("subspace-novelty admits a new direction, rejects a near-duplicate",
+          sg.is_novel(rng.normal(0, 1, 60), base) and not sg.is_novel(base[:, 0] * 1.001 + 1e-6, base))
+
+    # (b) sequential growth is append-only (a promoted block is never disturbed)
+    Xtr, Ytr, Xte, Yte, D, C, T, _ = sg.growing_teachers(T=4, prim=6, k=4, N=800, ntr=600, seed=0)
+    g = sg.grow_sequentially(Xtr, Ytr, Xte, Yte, D, C, T, promote=True, P=12, EP=150)
+    check("the spine only ever grows (widths non-decreasing)",
+          all(g["widths"][i] <= g["widths"][i + 1] for i in range(T - 1)))
+    check("later teachers reuse the spine (reuse fraction rises above zero)", max(g["reuses"]) > 0.1)
+
+    # (c) a self-specializing node distills a deep fiber and shortens the path
+    sc = sg.distill_shortcut(g["spine"], Xtr, Xte)
+    check("shortcut node reproduces the deep fiber (r2 > 0.3) and shortens the path",
+          sc["r2"] > 0.3 and sc["dist_saved"] > 0)
+
+    # (d) grafting two brains: sources preserved, cross-brain edges, beats either brain alone
+    XAtr, XAte, yAtr, yAte, yBtr, yBte, ycr, ycrte, D3, C3, half = sg.two_brain_teachers(N=900, ntr=680, seed=1)
+    def mask(X, s):
+        Z = X.copy(); Z[:, half:] = 0.0 if s == "L" else Z[:, half:]; Z[:, :half] = 0.0 if s == "R" else Z[:, :half]; return Z
+    A = sg.build_bank(mask(XAtr, "L"), yAtr, mask(XAte, "L"), yAte, D3, C3, seed=2, P=16, EP=200)
+    B = sg.build_bank(mask(XAtr, "R"), yBtr, mask(XAte, "R"), yBte, D3, C3, seed=3, P=16, EP=200)
+    Asnap = A.Ftr.copy()
+    graft, eA, eB = sg.graft_brains(A, B, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    check("grafting preserves both source brains byte-for-byte", np.array_equal(Asnap, A.Ftr))
+    check("the graft bundles BOTH brains (cross-brain edges on each side)", eA > 0 and eB > 0)
+    accA = sg.solo_acc(A, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    accB = sg.solo_acc(B, XAtr, ycr, XAte, ycrte, D3, C3, P=16, EP=200)
+    check("the graft beats what either brain alone can do on the cross task",
+          graft.acc(ycrte) > max(accA, accB))
+
+
+def test_world_teacher():
+    print("World-as-teacher: anchor magnetism holds a generation's phases to the axiom ground")
+    import experiments.world_teacher as wt
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from experiments.multi_teacher import shared_primitive_teachers
+
+    Xtr, Ytr, Xte, Yte, D, C, T = shared_primitive_teachers(T=1, N=1000, ntr=750, seed=0)
+    ytr, yte = Ytr[:, 0], Yte[:, 0]
+    ax = ConsolidatingNet(D, C, seed=1); ax.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250)
+    anc = wt.axiom_anchors(ax, K=3)
+    check("anchors are K unit vectors (mean directions of the axiom pointers)",
+          anc.shape[1] == C and np.allclose(np.linalg.norm(anc, axis=1), 1.0, atol=1e-6))
+
+    # magnetism pulls a generation's readout pointers toward the anchors (same seed, magnet on vs off)
+    a0 = ConsolidatingNet(D, C, seed=7); a0.seed_base(ax.Ftr, ax.Fte, list(ax.dist))
+    a0.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250, anchors=anc, magnet=0.0)
+    a1 = ConsolidatingNet(D, C, seed=7); a1.seed_base(ax.Ftr, ax.Fte, list(ax.dist))
+    a1.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250, anchors=anc, magnet=0.1)
+    check("magnetism pulls the phases toward the anchors (higher alignment than magnet off)",
+          wt.anchor_align(a1, anc) > wt.anchor_align(a0, anc))
+
+    # the invariant ground keeps capability across generations (no collapse)
+    r = wt.run_generations(ax, anc, Xtr, Xte, yte, G=4, magnet=0.03, EP=250, seed=10, P=16, ground=True)
+    check("capability holds across generations (the invariant ground is an attractor)",
+          min(r["acc"]) > 0.5 * r["acc"][0])
+
+
+def test_society():
+    print("Society of spines: generative collapse, cross-teaching rescue, flaw-break-reform")
+    import experiments.society as soc
+    from experiments.multi_teacher import shared_primitive_teachers
+
+    Xtr, Ytr, Xte, Yte, D, C, T = shared_primitive_teachers(T=1, N=1200, ntr=900, seed=0)
+    ytr, yte = Ytr[:, 0], Yte[:, 0]
+
+    # (a) a frozen spine forwards correctly on NEW inputs (needed to generate & evaluate)
+    net = soc.make_spine(Xtr, ytr, Xte, yte, D, C, seed=1, rounds=2, P=16, EP=200)
+    check("forward_logits reconstructs a spine on new inputs (matches its cached logits)",
+          np.allclose(soc.forward_logits(net, Xte), net.frozen_te + net.bias, atol=1e-6))
+
+    # (b) peer consensus beats the average lone spine (diversity corrects flaws)
+    rng = np.random.default_rng(2)
+    spines = [soc.make_spine(Xtr[idx], ytr[idx], Xte, yte, D, C, seed=10 + k, rounds=2, P=16, EP=200)
+              for k, idx in enumerate(rng.choice(len(Xtr), int(0.7 * len(Xtr)), replace=False) for _ in range(4))]
+    lone_mean = np.mean([soc.acc_on(s, Xte, yte) for s in spines])
+    cons = soc.peer_consensus([soc.forward_logits(s, Xte) for s in spines])
+    check("peer consensus is at least as accurate as the average lone spine",
+          (cons == yte).mean() >= lone_mean - 1e-9)
+
+    # (c) lone generative self-teaching degrades (a model trained on its own outputs)
+    lone = soc.lone_loop(Xtr, ytr, Xte, yte, D, C, G=4, seed=1, EP=200, n_gen=800)
+    check("lone generative self-teaching degrades over generations", min(lone[1:]) < lone[0])
+
+    # (d) flaw-break-reform breaks against-interest connections and reform recovers accuracy
+    s = soc.make_spine(Xtr, ytr, Xte, yte, D, C, seed=7, rounds=2, P=16, EP=200)
+    a_before = soc.acc_on(s, Xtr, ytr)
+    broke = soc.flaw_break_reform(s, Xtr, ytr)
+    check("flaw-break-reform breaks connections and the reform keeps accuracy",
+          broke >= 1 and soc.acc_on(s, Xtr, ytr) >= a_before - 0.05)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
-              test_agent_plumbing, test_ollama_agent_plumbing):
+              test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
+              test_multi_teacher, test_spine_growth, test_world_teacher, test_society):
         t()
     print()
     if _failures:
