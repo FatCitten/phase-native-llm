@@ -129,7 +129,8 @@ class ConsolidatingNet:
         return self
 
     def grow_round(self, Xtr, ytr, Xte, yte, P=32, epochs=1500, lr=0.05, wd=1e-4,
-                   floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6, prune_density=None):
+                   floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6, prune_density=None,
+                   anchors=None, magnet=0.0):
         """One consolidation wave. `tau` in [0,1) is the TIGHTENING RATIO: the target share of a new
         fiber's incoming weight-mass that must land on the frozen base (cross-paths) rather than raw
         inputs. tau ramps up across rounds to pull the concept-lines into one another. `k_par` bounds
@@ -157,6 +158,13 @@ class ConsolidatingNet:
             logits = self.frozen_tr + A @ V + db + self.bias
             dl = (softmax(logits) - onehot) / n
             dV = A.T @ dl + wd * V; ddb = dl.sum(0)
+            if magnet and anchors is not None and len(anchors):
+                # MAGNETISM: pull each fiber's readout pointer toward its nearest axiom-mean anchor,
+                # aligning it (remove the component orthogonal to the anchor). The anchors are the
+                # invariant "world-source-sustainer" ground; this keeps new phases from drifting.
+                Vn = V / (np.linalg.norm(V, axis=1, keepdims=True) + 1e-9)
+                near = anchors[np.argmax(Vn @ anchors.T, axis=1)]          # (P, C) nearest unit anchor
+                dV += magnet * (V - (V * near).sum(1, keepdims=True) * near)
             dpre = (dl @ V.T) * (pre > 0)
             dW = Ztr.T @ dpre + row_wd * W; dbb = dpre.sum(0)
             W -= lr * dW; b -= lr * dbb; V -= lr * dV; db -= lr * ddb

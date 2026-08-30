@@ -330,10 +330,37 @@ def test_spine_growth():
           graft.acc(ycrte) > max(accA, accB))
 
 
+def test_world_teacher():
+    print("World-as-teacher: anchor magnetism holds a generation's phases to the axiom ground")
+    import experiments.world_teacher as wt
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from experiments.multi_teacher import shared_primitive_teachers
+
+    Xtr, Ytr, Xte, Yte, D, C, T = shared_primitive_teachers(T=1, N=1000, ntr=750, seed=0)
+    ytr, yte = Ytr[:, 0], Yte[:, 0]
+    ax = ConsolidatingNet(D, C, seed=1); ax.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250)
+    anc = wt.axiom_anchors(ax, K=3)
+    check("anchors are K unit vectors (mean directions of the axiom pointers)",
+          anc.shape[1] == C and np.allclose(np.linalg.norm(anc, axis=1), 1.0, atol=1e-6))
+
+    # magnetism pulls a generation's readout pointers toward the anchors (same seed, magnet on vs off)
+    a0 = ConsolidatingNet(D, C, seed=7); a0.seed_base(ax.Ftr, ax.Fte, list(ax.dist))
+    a0.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250, anchors=anc, magnet=0.0)
+    a1 = ConsolidatingNet(D, C, seed=7); a1.seed_base(ax.Ftr, ax.Fte, list(ax.dist))
+    a1.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=250, anchors=anc, magnet=0.1)
+    check("magnetism pulls the phases toward the anchors (higher alignment than magnet off)",
+          wt.anchor_align(a1, anc) > wt.anchor_align(a0, anc))
+
+    # the invariant ground keeps capability across generations (no collapse)
+    r = wt.run_generations(ax, anc, Xtr, Xte, yte, G=4, magnet=0.03, EP=250, seed=10, P=16, ground=True)
+    check("capability holds across generations (the invariant ground is an attractor)",
+          min(r["acc"]) > 0.5 * r["acc"][0])
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
-              test_multi_teacher, test_spine_growth):
+              test_multi_teacher, test_spine_growth, test_world_teacher):
         t()
     print()
     if _failures:

@@ -95,10 +95,21 @@ amplifies capability, and standard training is blind to the structure it builds*
     cross task needing **both** is solved by the graft at **0.91** while either brain alone reaches only
     **~0.60** and from-scratch **0.31** — and *each source brain is preserved byte-for-byte* (the
     "sacred relationship to source, preserved by structure").
+- **World-as-teacher** (`experiments/world_teacher.py`). Iterated self-teaching — each generation
+  learns from the previous student's outputs (the student becomes the world) — which normally
+  **collapses**. Test whether the frozen axioms (the invariant "world-source-sustainer") and phase
+  **magnetism toward anchors** (the mean directions of the axiom pointers) hold it together:
+  - **The invariant ground resists collapse** — rebuilding from scratch each generation drifts
+    **0.742 → 0.635** over 8 generations, while the axiom-grounded structure holds **0.742 → 0.690**
+    (half the loss). The frozen source *sustains* capability across generations.
+  - **Magnetism holds the geometry** — pulling each generation's phases toward the anchors keeps their
+    alignment high (**0.85 vs 0.77**) instead of drifting. Honest limit: on *accuracy* the structural
+    ground already does the work — the magnet adds geometric consistency, not capability, on this toy.
 
 ```bash
 python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py \
-  && python experiments/multi_teacher.py && python experiments/spine_growth.py
+  && python experiments/multi_teacher.py && python experiments/spine_growth.py \
+  && python experiments/world_teacher.py
 ```
 
 ---
