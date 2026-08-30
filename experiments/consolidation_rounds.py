@@ -94,6 +94,7 @@ class ConsolidatingNet:
         self.dist = []                # distance-from-axiom of each established fiber
         self.frozen_W = []            # kept incoming weights (for the inviolability assert)
         self.frozen_V = []            # kept readout weights per round (for least-path-of-resistance traces)
+        self.frozen_b = []            # kept fiber biases per round (to forward the net on NEW inputs)
         self.synapses = 0             # cumulative synapses committed
         self.cross_edges = 0          # cumulative fiber->fiber connections (the cross-path mesh)
 
@@ -125,6 +126,7 @@ class ConsolidatingNet:
         self.dist = list(dist)
         self.frozen_W = [np.asarray(w, float) for w in frozen_W] if frozen_W else []
         self.frozen_V = []
+        self.frozen_b = []
         self.spine_width = self.Ftr.shape[1]
         return self
 
@@ -229,6 +231,7 @@ class ConsolidatingNet:
         self.dist += new_dists
         self.frozen_W.append(W.copy())
         self.frozen_V.append(V.copy())
+        self.frozen_b.append(b.copy())
         n_in = int((np.abs(W[:self.D]) > 0).sum())                    # surviving raw-input reads
         n_cross = int((np.abs(W[self.D:]) > 0).sum()) if n_base else 0  # fiber->fiber cross-paths
         self.cross_edges += n_cross

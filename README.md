@@ -105,11 +105,24 @@ amplifies capability, and standard training is blind to the structure it builds*
   - **Magnetism holds the geometry** — pulling each generation's phases toward the anchors keeps their
     alignment high (**0.85 vs 0.77**) instead of drifting. Honest limit: on *accuracy* the structural
     ground already does the work — the magnet adds geometric consistency, not capability, on this toy.
+- **A society of spines** (`experiments/society.py`). Now each generation truly **makes its own data**
+  (fresh sampled inputs, self-labeled) — which genuinely collapses a lone spine. A society of diverse
+  spines resists it by **cross-teaching** (each spine trains on its *peers'* opinionated data, never its
+  own — escaping the echo chamber), with optional **flaw-break-reform** (break each spine's
+  against-interest connections — those that drive its *own* wrong outputs, found by tracing source→
+  destination — and let them reform):
+  - **Lone generative self-teaching collapses** — 0.692 → 0.605 over 6 generations (training on its own
+    outputs, errors compounding).
+  - **The society collapses less** — cross-teaching holds it above the lone spine at *every* generation
+    (mean **0.642 vs 0.621**; loss **−0.076 vs −0.087**), while **independence is preserved** (pairwise
+    disagreement stays ~0.10, not homogenized). Honest limits: the rescue is *modest* — self-generated
+    data can't exceed the ensemble's own accuracy (a ceiling) — and **flaw-break-reform adds nothing**
+    over cross-teaching here. The mechanism holds; the magnitude is bounded by the toy.
 
 ```bash
 python experiments/synaptic_pruning.py && python experiments/consolidation_rounds.py \
   && python experiments/multi_teacher.py && python experiments/spine_growth.py \
-  && python experiments/world_teacher.py
+  && python experiments/world_teacher.py && python experiments/society.py
 ```
 
 ---

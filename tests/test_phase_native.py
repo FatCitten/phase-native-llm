@@ -357,10 +357,44 @@ def test_world_teacher():
           min(r["acc"]) > 0.5 * r["acc"][0])
 
 
+def test_society():
+    print("Society of spines: generative collapse, cross-teaching rescue, flaw-break-reform")
+    import experiments.society as soc
+    from experiments.multi_teacher import shared_primitive_teachers
+
+    Xtr, Ytr, Xte, Yte, D, C, T = shared_primitive_teachers(T=1, N=1200, ntr=900, seed=0)
+    ytr, yte = Ytr[:, 0], Yte[:, 0]
+
+    # (a) a frozen spine forwards correctly on NEW inputs (needed to generate & evaluate)
+    net = soc.make_spine(Xtr, ytr, Xte, yte, D, C, seed=1, rounds=2, P=16, EP=200)
+    check("forward_logits reconstructs a spine on new inputs (matches its cached logits)",
+          np.allclose(soc.forward_logits(net, Xte), net.frozen_te + net.bias, atol=1e-6))
+
+    # (b) peer consensus beats the average lone spine (diversity corrects flaws)
+    rng = np.random.default_rng(2)
+    spines = [soc.make_spine(Xtr[idx], ytr[idx], Xte, yte, D, C, seed=10 + k, rounds=2, P=16, EP=200)
+              for k, idx in enumerate(rng.choice(len(Xtr), int(0.7 * len(Xtr)), replace=False) for _ in range(4))]
+    lone_mean = np.mean([soc.acc_on(s, Xte, yte) for s in spines])
+    cons = soc.peer_consensus([soc.forward_logits(s, Xte) for s in spines])
+    check("peer consensus is at least as accurate as the average lone spine",
+          (cons == yte).mean() >= lone_mean - 1e-9)
+
+    # (c) lone generative self-teaching degrades (a model trained on its own outputs)
+    lone = soc.lone_loop(Xtr, ytr, Xte, yte, D, C, G=4, seed=1, EP=200, n_gen=800)
+    check("lone generative self-teaching degrades over generations", min(lone[1:]) < lone[0])
+
+    # (d) flaw-break-reform breaks against-interest connections and reform recovers accuracy
+    s = soc.make_spine(Xtr, ytr, Xte, yte, D, C, seed=7, rounds=2, P=16, EP=200)
+    a_before = soc.acc_on(s, Xtr, ytr)
+    broke = soc.flaw_break_reform(s, Xtr, ytr)
+    check("flaw-break-reform breaks connections and the reform keeps accuracy",
+          broke >= 1 and soc.acc_on(s, Xtr, ytr) >= a_before - 0.05)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
-              test_multi_teacher, test_spine_growth, test_world_teacher):
+              test_multi_teacher, test_spine_growth, test_world_teacher, test_society):
         t()
     print()
     if _failures:
