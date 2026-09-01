@@ -391,10 +391,45 @@ def test_society():
           broke >= 1 and soc.acc_on(s, Xtr, ytr) >= a_before - 0.05)
 
 
+def test_structure_machine():
+    print("Nautilus persistence: store -> load -> read preserves the engineered structure")
+    from demo import engine
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from experiments.society import forward_logits
+    rng = np.random.default_rng(0)
+    Xtr = rng.normal(0, 1, (40, 6)); ytr = rng.integers(0, 3, 40)
+    Xte = rng.normal(0, 1, (15, 6)); yte = rng.integers(0, 3, 15)
+    net = ConsolidatingNet(6, 3, seed=1)
+    net.grow_round(Xtr, ytr, Xte, yte, P=8, epochs=100, floor=0.05, conn_floor=0.1)
+    e = engine.StructureEngine(net)
+    # capture the original forward pass BEFORE any edit
+    logits_before = forward_logits(e.net, Xte)
+
+    # WRITE the machine to disk
+    path = e.save_structure("/tmp/_nautilus_machine_test.json")
+    check("write/save_structure returns a path and writes a file", Path(path).exists())
+
+    # EDIT after writing (edits and durability are orthogonal)
+    e.zero_fiber(0, 0)
+
+    # LOAD a fresh copy from disk (the pre-edit state)
+    e2 = engine.StructureEngine.load_structure(path, 6, 3)
+    check("load_structure rebuilds a live StructureEngine with same dims",
+          e2.net.D == 6 and e2.net.C == 3 and len(e2.net.frozen_W) == len(net.frozen_W))
+    check("the reloaded (un-edited) machine reproduces the original forward pass",
+          np.allclose(forward_logits(e2.net, Xte), logits_before, atol=1e-9))
+
+    # READ alias
+    e3 = engine.StructureEngine.read(path, 6, 3)
+    check("read alias reconstructs a working machine with same accuracy",
+          abs(e3.evaluate(Xte, yte) - e2.evaluate(Xte, yte)) < 1e-9)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
-              test_multi_teacher, test_spine_growth, test_world_teacher, test_society):
+              test_multi_teacher, test_spine_growth, test_world_teacher, test_society,
+              test_structure_machine):
         t()
     print()
     if _failures:

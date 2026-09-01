@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 scale_test_results.json
+.venv/
+.hermes/

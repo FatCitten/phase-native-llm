@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -58,8 +59,17 @@ class OllamaClient:
         req.add_header("Content-Type", "application/json")
         if self.api_key:
             req.add_header("Authorization", f"Bearer {self.api_key}")
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            return json.loads(r.read())
+        last = None
+        for attempt in range(3):  # retry transient timeouts / 5xx
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                    return json.loads(r.read())
+            except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+                last = e
+                time.sleep(2 * (attempt + 1))
+        if last is not None:
+            raise last
+        return json.loads(b"{}")
 
 
 def _args(tool_call: dict) -> dict:
