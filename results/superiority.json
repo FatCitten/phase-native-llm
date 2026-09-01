@@ -1,0 +1,112 @@
+{
+  "corpus": "ALICE",
+  "vocab_size": 64,
+  "seed": 7,
+  "wins_count": 2,
+  "total_configs": 8,
+  "best_config": {
+    "W": 8,
+    "rounds": 3,
+    "P": 96,
+    "cons_acc": 0.25,
+    "mlp_acc": 0.2333,
+    "delta": 0.0167
+  },
+  "best_config_delta": 0.0167,
+  "capability_per_synapse": {
+    "consolidation": 0.00831,
+    "mlp": 0.001582
+  },
+  "configs": [
+    {
+      "W": 8,
+      "rounds": 3,
+      "P": 64,
+      "cons_acc": 0.2167,
+      "mlp_acc": 0.2333,
+      "delta": -0.0167,
+      "cons_syn": 20025,
+      "t_cons": 3.8,
+      "t_mlp": 12.2
+    },
+    {
+      "W": 8,
+      "rounds": 3,
+      "P": 96,
+      "cons_acc": 0.25,
+      "mlp_acc": 0.2333,
+      "delta": 0.0167,
+      "cons_syn": 30084,
+      "t_cons": 4.9,
+      "t_mlp": 12.2
+    },
+    {
+      "W": 8,
+      "rounds": 6,
+      "P": 64,
+      "cons_acc": 0.225,
+      "mlp_acc": 0.2417,
+      "delta": -0.0167,
+      "cons_syn": 20724,
+      "t_cons": 10.0,
+      "t_mlp": 27.7
+    },
+    {
+      "W": 8,
+      "rounds": 6,
+      "P": 96,
+      "cons_acc": 0.2583,
+      "mlp_acc": 0.2417,
+      "delta": 0.0167,
+      "cons_syn": 30748,
+      "t_cons": 10.2,
+      "t_mlp": 27.7
+    },
+    {
+      "W": 16,
+      "rounds": 3,
+      "P": 64,
+      "cons_acc": 0.2,
+      "mlp_acc": 0.2083,
+      "delta": -0.0083,
+      "cons_syn": 31875,
+      "t_cons": 5.3,
+      "t_mlp": 20.4
+    },
+    {
+      "W": 16,
+      "rounds": 3,
+      "P": 96,
+      "cons_acc": 0.1667,
+      "mlp_acc": 0.2083,
+      "delta": -0.0417,
+      "cons_syn": 50633,
+      "t_cons": 7.0,
+      "t_mlp": 20.4
+    },
+    {
+      "W": 16,
+      "rounds": 6,
+      "P": 64,
+      "cons_acc": 0.2083,
+      "mlp_acc": 0.2083,
+      "delta": 0.0,
+      "cons_syn": 33066,
+      "t_cons": 9.9,
+      "t_mlp": 36.8
+    },
+    {
+      "W": 16,
+      "rounds": 6,
+      "P": 96,
+      "cons_acc": 0.1833,
+      "mlp_acc": 0.2083,
+      "delta": -0.025,
+      "cons_syn": 51780,
+      "t_cons": 13.3,
+      "t_mlp": 36.8
+    }
+  ],
+  "runtime_sec": 161.6,
+  "verdict": "consolidation won 2/8 configs (trails matched MLP)."
+}
