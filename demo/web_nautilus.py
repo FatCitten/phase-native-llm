@@ -169,13 +169,20 @@ HTML = r"""<!DOCTYPE html>
 </div>
 
 <script>
-// ---- the compact Nautilus model, inlined ----
-const MODEL = __MODEL__;
-let state = { rounds: MODEL.rounds.map(r => ({W:r.W, V:r.V, b:r.b})), bias: MODEL.bias.slice(), dist: MODEL.dist.slice() };
-const V = MODEL.vocab.length, W = MODEL.window, C = MODEL.bias.length;
+// ---- the Nautilus machine, inlined. MODEL is the contract: any structure saved by
+// engine.StructureEngine.save_structure (with vocab+window) plugs in here. ----
+let MODEL = __MODEL__;
+let state = MODEL;  // the single source of truth: {window, vocab, bias, dist, rounds}
+
+// dimension accessors read from the LIVE state, so a loaded machine with a different
+// vocab/window/fan-out just works — the demo is a model-agnostic environment.
+function curV() { return state.vocab.length; }
+function curW() { return state.window; }
+function curC() { return state.bias.length; }
 
 // ---- forward pass (JS reimplementation) ----
 function forwardLogits(x) {
+  const C = curC();
   let F = [];
   let logits = new Array(C).fill(0);
   for (let r = 0; r < state.rounds.length; r++) {
@@ -200,10 +207,11 @@ function forwardLogits(x) {
 }
 
 function oneHot(prompt) {
+  const V = curV(), W = curW();
   const x = new Array(W * V).fill(0);
   const tail = prompt.slice(-W);
   for (let k = 0; k < tail.length; k++) {
-    const ci = MODEL.vocab.indexOf(tail[k]);
+    const ci = state.vocab.indexOf(tail[k]);
     if (ci >= 0) x[k * V + ci] = 1;
   }
   return x;
@@ -226,6 +234,7 @@ function predictChar(x) {
 
 // ---- OBSERVE ----
 function renderStats() {
+  const V = curV(), W = curW();
   const nFib = state.dist.length;
   const syn = state.rounds.reduce((a, r) => a + r.W.length * r.W[0].length, 0);
   document.getElementById('stats').innerHTML =
@@ -254,7 +263,7 @@ function showFiber() {
   if (!Wr || j >= Wr.V.length) { document.getElementById('fiber').innerHTML = '<div class="trace">invalid fiber</div>'; return; }
   let srcs = [];
   for (let i = 0; i < Wr.W.length; i++) {
-    if (Wr.W[i][j] !== 0) srcs.push('<span class="src">' + (i < MODEL.window*V ? 'input' : 'fiber') + '[' + i + ']</span>=' + Wr.W[i][j].toFixed(2));
+    if (Wr.W[i][j] !== 0) srcs.push('<span class="src">' + (i < curW()*curV() ? 'input' : 'fiber') + '[' + i + ']</span>=' + Wr.W[i][j].toFixed(2));
   }
   const ro = Vr[j].map((v, c) => v !== 0 ? 'c' + c + ':' + v.toFixed(2) : null).filter(Boolean).join(', ');
   // distance: global index of this fiber
@@ -272,9 +281,10 @@ function trace() {
   const prompt = document.getElementById('tprompt').value;
   const x = oneHot(prompt);
   const { ci, logits } = predictChar(x);
-  const pred = MODEL.vocab[ci];
+  const pred = state.vocab[ci];
   const last = state.rounds.length - 1;
   const Vr = state.rounds[last].V, Wr = state.rounds[last].W;
+  const D = curW() * curV();
   let F = [];
   for (let r = 0; r < state.rounds.length; r++) {
     const inp = x.concat(F.flat());
@@ -294,10 +304,10 @@ function trace() {
   for (let i = 0; i < Wr.length; i++) { const v = Math.abs(Wr[i][kf]) * Math.abs(inp[i]); if (v > best2) { best2 = v; s = i; } }
   const steps = ['fiber(r' + last + ',#' + kf + ')'];
   for (let hop = 0; hop < 12; hop++) {
-    if (s < MODEL.window * V) { steps.push('input[' + s + '] (char \'' + MODEL.vocab[s % V] + '\')'); break; }
-    const j = s - MODEL.window * V;
+    if (s < D) { steps.push('input[' + s + '] (char \'' + state.vocab[s % curV()] + '\')'); break; }
+    const j = s - D;
     steps.push('fiber(#' + j + ')');
-    s = s % (MODEL.window * V);
+    s = s % D;
     break;
   }
   document.getElementById('traceout').textContent = "predicted next char: '" + pred + "'";
@@ -324,7 +334,7 @@ function pruneFiber() {
   let base = 0, gidx = -1;
   for (let rr = 0; rr <= r; rr++) { if (rr === r) gidx = base + j; base += state.rounds[rr].W[0].length; }
   for (let rr = r + 1; rr < state.rounds.length; rr++) {
-    const pos = MODEL.window * V + gidx;
+    const pos = curW() * curV() + gidx;
     if (pos < state.rounds[rr].W.length && state.rounds[rr].W[pos].some(v => v !== 0)) {
       result('REFUSED: fiber(' + r + ',' + j + ') is read by a later round (append-only)');
       return;
@@ -339,6 +349,7 @@ function addFiber() {
   const r = parseInt(document.getElementById('eround').value);
   const Wr = state.rounds[r];
   if (!Wr) { result('invalid round'); return; }
+  const C = curC();
   const col = new Array(Wr.W.length).fill(0);
   col[0] = 1;
   for (let i = 0; i < Wr.W.length; i++) Wr.W[i].push(col[i]);
@@ -350,7 +361,7 @@ function addFiber() {
 
 // ---- SAVE / LOAD ----
 function saveMachine() {
-  const blob = new Blob([JSON.stringify({ rounds: state.rounds, bias: state.bias, dist: state.dist })], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({ window: state.window, vocab: state.vocab, rounds: state.rounds, bias: state.bias, dist: state.dist })], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'nautilus.json';
@@ -365,10 +376,14 @@ document.getElementById('loadfile').addEventListener('change', e => {
   reader.onload = () => {
     try {
       const d = JSON.parse(reader.result);
-      state = { rounds: d.rounds, bias: d.bias, dist: d.dist };
-      document.getElementById('saveload').textContent = 'loaded machine: ' + state.rounds.length + ' rounds, ' + state.dist.length + ' fibers';
+      if (!d || !Array.isArray(d.rounds) || !d.vocab || !d.window) {
+        document.getElementById('saveload').textContent = 'load failed: not a valid Nautilus machine (needs rounds, vocab, window)';
+        throw new Error('invalid');
+      }
+      state = { rounds: d.rounds, bias: d.bias || [], dist: d.dist || [], vocab: d.vocab, window: d.window };
+      document.getElementById('saveload').textContent = 'loaded machine: ' + state.rounds.length + ' rounds, ' + state.dist.length + ' fibers, vocab ' + curV() + ', window ' + curW();
       renderStats(); renderGrowth();
-    } catch (err) { document.getElementById('saveload').textContent = 'load failed: ' + err.message; }
+    } catch (err) { if (err.message !== 'invalid') document.getElementById('saveload').textContent = 'load failed: ' + err.message; }
   };
   reader.readAsText(f);
 });
@@ -382,7 +397,7 @@ function generate() {
     const x = oneHot(ctx);
     const logits = forwardLogits(x);
     const ci = sample(logits, temp);
-    const c = MODEL.vocab[ci];
+    const c = state.vocab[ci];
     out += c; lastChar = c; ctx += c;
   }
   document.getElementById('out').textContent = prompt + out;
