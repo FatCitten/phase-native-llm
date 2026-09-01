@@ -1,0 +1,9 @@
+{
+  "model": "glm-5.3-flash",
+  "baseline_acc": 0.20167364016736403,
+  "final_acc": 0.0502092050209205,
+  "tool_calls": 155,
+  "iters": 35,
+  "report": null,
+  "structure_file": "results/brain_child.json"
+}

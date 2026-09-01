@@ -1,0 +1,18 @@
+{
+  "machine": "NAUTILUS",
+  "version": "0.1",
+  "claim": "A consolidation network whose structure is legible (observe), editable (edit), and durable (store/load/read/write) — a machine an LLM can engineer directly.",
+  "baseline_acc": 0.1916,
+  "best_acc_after_LLM_edits": 0.2017,
+  "llm_edit_delta": 0.0101,
+  "brain_child_source": "recovered by replaying the LLM's logged edit sequence (iteration 18 of run 1) from the baseline",
+  "structure_file": "results/brain_child.json",
+  "loaded_how": "engine.StructureEngine.read('results/brain_child.json', D, C) — verified acc=0.2017 on reload",
+  "llm_model": "glm-5.3-flash",
+  "honest_notes": [
+    "The LLM made 155+ tool calls over 3 resume runs; its best discovered structure (0.2017) was saved at iter-18 of run 1.",
+    "A later over-edit collapsed the live structure to ~0.05; the best was recovered by replaying the logged edit sequence.",
+    "Raw-accuracy superiority vs a matched MLP is NOT settled: a separate 8-config sweep found consolidation wins only 2/8 configs on raw next-char accuracy, though capability-per-synapse is ~5x higher.",
+    "The durable claim is: the structure is bytes-on-disk, editable by an LLM, and saves/loads exactly."
+  ]
+}
