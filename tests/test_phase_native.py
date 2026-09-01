@@ -425,11 +425,46 @@ def test_structure_machine():
           abs(e3.evaluate(Xte, yte) - e2.evaluate(Xte, yte)) < 1e-9)
 
 
+def test_visualizer():
+    print("Nautilus visualizer: one view, two viewers (LLM + human) agree")
+    from demo import engine, visualizer
+    from experiments.consolidation_rounds import ConsolidatingNet
+    rng = np.random.default_rng(0)
+    Xtr = rng.normal(0, 1, (40, 6)); ytr = rng.integers(0, 3, 40)
+    Xte = rng.normal(0, 1, (15, 6)); yte = rng.integers(0, 3, 15)
+    net = ConsolidatingNet(6, 3, seed=1)
+    net.grow_round(Xtr, ytr, Xte, yte, P=8, epochs=100, floor=0.05, conn_floor=0.1)
+    net.grow_round(Xtr, ytr, Xte, yte, P=8, epochs=100, floor=0.05, conn_floor=0.1)
+    eng = engine.StructureEngine(net)
+    viz = visualizer.NautilusVisualizer(eng)
+
+    # both viewers derive from the SAME view() — the single source of truth
+    v = viz.view(detail="full")
+    llm = viz.to_llm(detail="full")
+    human = viz.to_human(detail="full")
+    check("to_llm and to_human both derive from the same view()",
+          "fiber(0,0)" in llm and "fiber(0,0)" in human)
+    check("LLM view reports the same total fiber count as the canonical view",
+          f"fibers={v['total_fibers']}" in llm)
+    check("human view reports the same total fiber count as the canonical view",
+          f"fibers={v['total_fibers']}" in human)
+    # a specific fiber's distance appears identically in both viewers
+    d0 = v["rounds"][0]["fibers"][0]["dist"]
+    check("a fiber's distance is identical in both viewers",
+          f"dist={d0:.2f}" in llm and f"dist={d0:.2f}" in human)
+
+    # trace view for both
+    tr_llm = viz.trace_llm(Xte[0])
+    tr_human = viz.trace_human(Xte[0])
+    check("trace_llm and trace_human both start at a fiber",
+          tr_llm.startswith("pred_class=") and "fiber" in tr_llm and "fiber" in tr_human)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
               test_multi_teacher, test_spine_growth, test_world_teacher, test_society,
-              test_structure_machine):
+              test_structure_machine, test_visualizer):
         t()
     print()
     if _failures:

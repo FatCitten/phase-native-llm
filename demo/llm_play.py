@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 
-from demo import charlm, engine
+from demo import charlm, engine, visualizer
 from demo.demo import load_sections
 from phase_native.ollama_agent import OllamaClient
 
@@ -117,6 +117,7 @@ class EngineExecutor:
         self.vocab = vocab
         self.schemas = build_tools()
         self.calls = 0
+        self.viz = visualizer.NautilusVisualizer(eng)
 
     @staticmethod
     def _safe(obj):
@@ -167,14 +168,14 @@ class EngineExecutor:
         self.calls += 1
         eng = self.eng
         if name == "observe_growth":
-            log = eng.observe_growth()
-            return {"rounds": [{"round": r["round"], "n_fibers": r["n_fibers"],
-                                "cross_edges": r["cross_edges"]} for r in log]}
+            # the LLM sees the SAME canonical view the human visualizer renders
+            return {"view": self.viz.view(detail="summary"),
+                    "llm_text": self.viz.to_llm(detail="summary")}
         if name == "fiber_profile":
             err = self._check_fiber(int(args["round_idx"]), int(args["fiber_idx"]))
             if err:
                 return {"ok": False, "error": err}
-            return eng.fiber_profile(int(args["round_idx"]), int(args["fiber_idx"]))
+            return self.eng.fiber_profile(int(args["round_idx"]), int(args["fiber_idx"]))
         if name == "trace":
             i = int(args["x_index"])
             if not (0 <= i < len(self.Xte)):
