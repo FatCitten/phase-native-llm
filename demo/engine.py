@@ -221,6 +221,10 @@ class StructureEngine:
         net = self.net
         W = net.frozen_W[round_idx]
         n_in = W.shape[0]
+        # clamp the readout to exactly C slots (a sloppy LLM may pass a mis-sized list)
+        readout = list(readout)[:self.C]
+        if len(readout) < self.C:
+            readout = readout + [0.0] * (self.C - len(readout))
         col = np.zeros(n_in)
         for src, w in sources.items():
             if 0 <= src < n_in:
