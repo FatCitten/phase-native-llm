@@ -132,6 +132,20 @@ class EngineExecutor:
             return EngineExecutor._safe(obj.tolist())
         return obj
 
+    @staticmethod
+    def _dict_arg(v):
+        """Normalize a 'sources' style argument that may arrive as a JSON string."""
+        if isinstance(v, str):
+            v = json.loads(v) if v.strip() else {}
+        return v or {}
+
+    @staticmethod
+    def _list_arg(v):
+        """Normalize a 'readout' style argument that may arrive as a JSON string."""
+        if isinstance(v, str):
+            v = json.loads(v) if v.strip() else []
+        return list(v or [])
+
     def _check_fiber(self, round_idx, fiber_idx):
         net = self.eng.net
         if not (0 <= round_idx < len(net.frozen_W)):
@@ -195,15 +209,15 @@ class EngineExecutor:
             if err:
                 return {"ok": False, "error": err}
             eng.rewire_fiber(int(args["round_idx"]), int(args["fiber_idx"]),
-                             {int(k): float(v) for k, v in args["sources"].items()})
+                             {int(k): float(v) for k, v in self._dict_arg(args.get("sources")).items()})
             return {"ok": True, "acc": round(eng.evaluate(self.Xte, self.yte), 4)}
         if name == "add_fiber":
             err = self._check_fiber(int(args["round_idx"]), 0)
             if err:
                 return {"ok": False, "error": err}
             eng.add_fiber(int(args["round_idx"]),
-                          {int(k): float(v) for k, v in args["sources"].items()},
-                          [float(x) for x in args["readout"]])
+                          {int(k): float(v) for k, v in self._dict_arg(args.get("sources")).items()},
+                          [float(x) for x in self._list_arg(args.get("readout"))])
             return {"ok": True, "acc": round(eng.evaluate(self.Xte, self.yte), 4)}
         if name == "set_readout":
             err = self._check_fiber(int(args["round_idx"]), int(args["fiber_idx"]))
