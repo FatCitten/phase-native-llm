@@ -49,19 +49,31 @@ def build_vocab(texts, min_freq=1):
 
 
 def window_words(tokens, W, vocab):
-    """Slide a window of W words over `tokens`; return (X one-hot [N, W*V], y next-word [N])."""
+    """Slide a window of W words over `tokens`; return (X [N, W] integer token indices, y [N] next-word index).
+
+    Sparse: X holds integer vocab indices (one per window position), NOT one-hot vectors.
+    The input layer becomes a gather (W[token]) instead of a dense one-hot matmul.
+    """
     V = len(vocab)
     idx = {w: i for i, w in enumerate(vocab)}
     n = max(0, len(tokens) - W)
-    X = np.zeros((n, W * V), dtype=float)
-    y = np.zeros(n, dtype=int)
+    X = np.zeros((n, W), dtype=np.int64)
+    y = np.zeros(n, dtype=np.int64)
     for i in range(n):
         for k in range(W):
-            w = tokens[i + k]
-            X[i, k * V + idx.get(w, 0)] = 1.0
-        nxt = tokens[i + W]
-        y[i] = idx.get(nxt, 0)
+            X[i, k] = idx.get(tokens[i + k], 0)
+        y[i] = idx.get(tokens[i + W], 0)
     return X, y
+
+
+def one_hot(X, V):
+    """Convert integer token indices (N, W) back to one-hot (N, W*V) for callers that need it."""
+    N, W = X.shape
+    oh = np.zeros((N, W * V), dtype=float)
+    for i in range(N):
+        for k in range(W):
+            oh[i, k * V + X[i, k]] = 1.0
+    return oh
 
 
 def split(X, y, frac=0.8, seed=0):

@@ -476,11 +476,125 @@ def test_visualizer():
           tr_llm.startswith("pred_class=") and "fiber" in tr_llm and "fiber" in tr_human)
 
 
+def test_sparse_window_words():
+    print("sparse window_words returns integer token indices (not one-hot)")
+    from demo import wordlm
+    vocab = ["<UNK>", "the", "cat", "sat"]
+    tokens = ["the", "cat", "sat", "the", "cat"]
+    X, y = wordlm.window_words(tokens, 3, vocab)
+    check("X is (N, W) integer indices, not (N, W*V) one-hot", X.shape == (2, 3))
+    check("X[0] == [1,2,3] (the,cat,sat)", X[0].tolist() == [1, 2, 3])
+    check("y == [1,2] (next words the,cat)", y.tolist() == [1, 2])
+    check("X dtype is integer", np.issubdtype(X.dtype, np.integer))
+    # one_hot round-trips back to the dense form
+    oh = wordlm.one_hot(X, len(vocab))
+    check("one_hot(X) is (N, W*V)", oh.shape == (2, 3 * 4))
+    check("one_hot reconstructs the one-hot rows", oh[0].tolist() ==
+          [0,1,0,0, 0,0,1,0, 0,0,0,1])
+
+
+def test_backend_parity():
+    print("backend numpy/torch parity")
+    from demo import backend
+    rng = np.random.default_rng(0)
+    a = rng.normal(0, 1, (5, 8)); b = rng.normal(0, 1, (8, 3))
+    nb = backend.NumpyBackend()
+    check("numpy matmul", np.allclose(nb.matmul(a, b), a @ b))
+    check("numpy relu", np.allclose(nb.relu(a), np.maximum(a, 0)))
+    sm = np.exp(a - a.max(1, keepdims=True))
+    sm = sm / sm.sum(1, keepdims=True)
+    check("numpy softmax", np.allclose(nb.softmax(a), sm))
+    try:
+        tb = backend.TorchBackend()
+        check("torch matmul matches numpy", np.allclose(np.asarray(tb.matmul(a, b)), a @ b, atol=1e-5))
+        check("torch relu matches numpy", np.allclose(np.asarray(tb.relu(a)), np.maximum(a, 0), atol=1e-5))
+    except ImportError:
+        print("  [SKIP] torch not installed — numpy path verified")
+
+
+def test_sparse_forward_matches_onehot():
+    print("sparse forward matches one-hot forward")
+    from demo import wordlm, backend
+    from demo.demo import load_sections
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from experiments.society import forward_logits
+    s = load_sections("demo/corpus.txt")
+    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
+    W = 4
+    tokens = wordlm.tokenize(" ".join(s.values()))
+    X, y = wordlm.window_words(tokens, W, vocab)   # integer (N, W)
+    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
+    D = W * len(vocab); C = len(vocab)
+    net = ConsolidatingNet(D, C, seed=1)
+    net.backend = backend.NumpyBackend()
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
+    Xoh = wordlm.one_hot(Xte, len(vocab))
+    l_oh = forward_logits(net, Xoh)
+    l_sp = forward_logits(net, Xte)   # integer tokens
+    check("sparse forward == one-hot forward", np.allclose(l_oh, l_sp, atol=1e-6))
+
+
+def test_sparse_grow_matches_onehot():
+    print("sparse grow_round matches one-hot grow_round")
+    from demo import wordlm, backend
+    from demo.demo import load_sections
+    from experiments.consolidation_rounds import ConsolidatingNet
+    s = load_sections("demo/corpus.txt")
+    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
+    W = 4
+    tokens = wordlm.tokenize(" ".join(s.values()))
+    X, y = wordlm.window_words(tokens, W, vocab)
+    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
+    D = W * len(vocab); C = len(vocab)
+    net_oh = ConsolidatingNet(D, C, seed=1)
+    Xoh_tr = wordlm.one_hot(Xtr, len(vocab)); Xoh_te = wordlm.one_hot(Xte, len(vocab))
+    for r in range(2):
+        net_oh.grow_round(Xoh_tr, ytr, Xoh_te, yte, P=32, epochs=50, tau=0.0)
+    net_sp = ConsolidatingNet(D, C, seed=1)
+    net_sp.backend = backend.NumpyBackend()
+    for r in range(2):
+        net_sp.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
+    check("same accuracy", abs(net_oh.acc(yte) - net_sp.acc(yte)) < 1e-6)
+    check("same number of rounds", len(net_oh.frozen_W) == len(net_sp.frozen_W))
+    same = all(np.allclose(a, b, atol=1e-6) for a, b in zip(net_oh.frozen_W, net_sp.frozen_W))
+    check("frozen weights match", same)
+
+
+def test_forced_recall_matches_full():
+    print("forced-recall masked forward matches full forward")
+    from demo import wordlm, backend
+    from demo.demo import load_sections
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from experiments.society import forward_logits, forward_logits_masked
+    s = load_sections("demo/corpus.txt")
+    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
+    W = 4
+    tokens = wordlm.tokenize(" ".join(s.values()))
+    X, y = wordlm.window_words(tokens, W, vocab)
+    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
+    D = W * len(vocab); C = len(vocab)
+    net = ConsolidatingNet(D, C, seed=1)
+    net.backend = backend.NumpyBackend()
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
+    masks = net.recall_mask(Xte)
+    l_full = forward_logits(net, Xte)
+    l_masked = forward_logits_masked(net, Xte, masks)
+    check("masked forward == full forward", np.allclose(l_full, l_masked, atol=1e-6))
+    total = sum(len(m) for m in masks)
+    all_fibers = sum(Wr.shape[1] for Wr in net.frozen_W)
+    check("recall mask prunes some fibers", total < all_fibers)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
               test_multi_teacher, test_spine_growth, test_world_teacher, test_society,
-              test_structure_machine, test_visualizer):
+              test_structure_machine, test_visualizer,
+              test_sparse_window_words, test_backend_parity,
+              test_sparse_forward_matches_onehot, test_sparse_grow_matches_onehot,
+              test_forced_recall_matches_full):
         t()
     print()
     if _failures:
