@@ -32,7 +32,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from demo import charlm
+from demo import charlm, wordlm
 from demo.demo import load_sections
 from experiments.consolidation_rounds import ConsolidatingNet
 from experiments.society import forward_logits
@@ -245,13 +245,14 @@ async def command(cmd: Command):
 
 
 def _init_data():
-    """Load corpus + build initial net (called on first start)."""
+    """Load corpus + build initial word-level next-token net (called on first start)."""
     sections = load_sections(DEMO / "corpus.txt")
-    corpus_a = sections.get("ALICE", "")
-    vocab = charlm.build_vocab([corpus_a])
-    W = 8
-    Xa, ya = charlm.window(corpus_a, W, vocab)
-    Xtr, ytr, Xte, yte = charlm.split_windows(Xa, ya, frac=0.8, seed=1)
+    texts = list(sections.values())
+    vocab = wordlm.build_vocab(texts, min_freq=5)
+    W = 4
+    tokens = wordlm.tokenize(" ".join(texts))
+    X, y = wordlm.window_words(tokens, W, vocab)
+    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
     D = W * len(vocab); C = len(vocab)
     net = ConsolidatingNet(D, C, seed=1)
     state.net = net
