@@ -132,11 +132,17 @@ class ConsolidatingNet:
 
     def grow_round(self, Xtr, ytr, Xte, yte, P=32, epochs=1500, lr=0.05, wd=1e-4,
                    floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6, prune_density=None,
-                   anchors=None, magnet=0.0):
+                   anchors=None, magnet=0.0, soft=None):
         """One consolidation wave. `tau` in [0,1) is the TIGHTENING RATIO: the target share of a new
         fiber's incoming weight-mass that must land on the frozen base (cross-paths) rather than raw
         inputs. tau ramps up across rounds to pull the concept-lines into one another. `k_par` bounds
-        how many frozen fibers a new fiber may bundle (sparse composition -> each cross-path is cheap)."""
+        how many frozen fibers a new fiber may bundle (sparse composition -> each cross-path is cheap).
+
+        `soft` (optional, (n, C) float matrix): DISTILLATION. If given, the child trains against the
+        teacher's soft probability distribution over classes instead of hard one-hot labels — the
+        child inherits the teacher's knowledge (e.g. that 'the' and 'a' are both plausible next words,
+        with different probabilities) rather than only the single argmax. This is the foster-parent
+        mechanism: a frontier LLM's soft targets raise the child."""
         self._ensure(Xtr, Xte)
         Ztr = np.concatenate([Xtr, self.Ftr], 1)      # candidates read [inputs | frozen base]
         Zte = np.concatenate([Xte, self.Fte], 1)
@@ -147,7 +153,13 @@ class ConsolidatingNet:
         b = np.zeros(P)
         V = self.rng.normal(0, 0.01, (P, self.C))
         db = np.zeros(self.C)
-        onehot = np.eye(self.C)[ytr]
+        # DISTILLATION: use teacher soft targets if given, else hard one-hot labels
+        if soft is not None:
+            onehot = np.asarray(soft, float)
+            if onehot.shape != (n, self.C):
+                raise ValueError(f"soft targets shape {onehot.shape} != (n={n}, C={self.C})")
+        else:
+            onehot = np.eye(self.C)[ytr]
 
         # FORCE + REWARD: per-row weight decay -- raw-input reads get costlier as tau rises, frozen
         # base reads get cheaper, so gradient descent routes signal THROUGH existing fibers.
