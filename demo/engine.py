@@ -219,6 +219,12 @@ class StructureEngine:
 
     def add_fiber(self, round_idx, sources, readout, bias=0.0):
         net = self.net
+        # SAFETY: adding a fiber to an EARLIER round would change its width, which later
+        # rounds read as input (D + width_before). Only the LAST round is safe to grow.
+        if round_idx != len(net.frozen_W) - 1:
+            raise ValueError(
+                f"add_fiber only allowed on the last round ({len(net.frozen_W)-1}); "
+                f"adding to round {round_idx} would break later rounds' input width")
         W = net.frozen_W[round_idx]
         n_in = W.shape[0]
         # clamp the readout to exactly C slots (a sloppy LLM may pass a mis-sized list)

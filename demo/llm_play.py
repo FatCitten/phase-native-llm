@@ -216,9 +216,12 @@ class EngineExecutor:
             err = self._check_fiber(int(args["round_idx"]), 0)
             if err:
                 return {"ok": False, "error": err}
-            eng.add_fiber(int(args["round_idx"]),
-                          {int(k): float(v) for k, v in self._dict_arg(args.get("sources")).items()},
-                          [float(x) for x in self._list_arg(args.get("readout"))])
+            try:
+                eng.add_fiber(int(args["round_idx"]),
+                              {int(k): float(v) for k, v in self._dict_arg(args.get("sources")).items()},
+                              [float(x) for x in self._list_arg(args.get("readout"))])
+            except ValueError as e:
+                return {"ok": False, "error": str(e)}
             return {"ok": True, "acc": round(eng.evaluate(self.Xte, self.yte), 4)}
         if name == "set_readout":
             err = self._check_fiber(int(args["round_idx"]), int(args["fiber_idx"]))

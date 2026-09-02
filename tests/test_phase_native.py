@@ -424,6 +424,22 @@ def test_structure_machine():
     check("read alias reconstructs a working machine with same accuracy",
           abs(e3.evaluate(Xte, yte) - e2.evaluate(Xte, yte)) < 1e-9)
 
+    # EDIT safety guards: add_fiber to an earlier round must be refused (width safety)
+    # need a net with >=2 rounds for this check
+    net.grow_round(Xtr, ytr, Xte, yte, P=8, epochs=100, floor=0.05, conn_floor=0.1)
+    e4 = engine.StructureEngine(net)
+    refused_add = False
+    try:
+        e4.add_fiber(0, {0: 1.0}, [0.1] * 3)
+    except ValueError:
+        refused_add = True
+    check("add_fiber to an earlier round is refused (width safety)", refused_add)
+    # add_fiber to the LAST round is allowed
+    last = len(net.frozen_W) - 1
+    n_before = net.frozen_W[last].shape[1]
+    e4.add_fiber(last, {0: 1.0}, [0.1] * 3)
+    check("add_fiber to the last round is allowed", net.frozen_W[last].shape[1] == n_before + 1)
+
 
 def test_visualizer():
     print("Nautilus visualizer: one view, two viewers (LLM + human) agree")
