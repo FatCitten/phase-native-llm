@@ -65,6 +65,34 @@ def _get_numpy_backend():
     return _numpy_backend
 
 
+def forward_logits_masked(net, X, masks, backend=None):
+    """Forward using precomputed recall masks: skip fibers that never fire on the batch.
+
+    Returns the SAME logits as forward_logits — a fiber with activation 0 contributes
+    0 to both the readout (0 @ V) and the next round's base (0 column in F), so dropping
+    it changes nothing. This is the forced-recall pathway pruning: only the active
+    subgraph is computed, so recall gets cheaper as the net grows."""
+    bk = backend or getattr(net, "backend", None) or _get_numpy_backend()
+    F = bk.zeros((len(X), 0)); logits = bk.zeros((len(X), net.C))
+    sparse = X.shape[1] != net.D
+    vocab_size = net.D // X.shape[1] if sparse else 0
+    for i, (Wr, Vr, br) in enumerate(zip(net.frozen_W, net.frozen_V, net.frozen_b)):
+        m = masks[i]
+        if sparse:
+            zin = bk.zeros((len(X), Wr.shape[1]))
+            for k in range(X.shape[1]):
+                zin = zin + bk.gather(Wr[:net.D], k * vocab_size + X[:, k])
+        else:
+            zin = bk.matmul(X, Wr[:net.D])
+        pre = zin + bk.matmul(F, Wr[net.D:]) + br
+        A = bk.relu(pre)
+        logits = logits + bk.matmul(A, Vr)
+        # F stays FULL-WIDTH (all fibers) so the next round's Wr[net.D:] columns align.
+        # Unfired fibers are all-zero columns, so their contribution is 0 either way.
+        F = bk.concatenate([F, A], 1)
+    return logits + net.bias
+
+
 def predict(net, X):
     return forward_logits(net, X).argmax(1)
 

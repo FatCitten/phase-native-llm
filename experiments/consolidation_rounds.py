@@ -115,6 +115,29 @@ class ConsolidatingNet:
             if (col > 0).sum() > k:
                 M[:, j][col < np.sort(col)[-k]] = 0.0
 
+    def recall_mask(self, X, backend=None):
+        """Return a per-round boolean mask of fibers that FIRE (activation > 0) on X.
+        Fibers that never fire are unused pathways — recall can skip them.
+        Returns a list of integer index arrays (one per round)."""
+        bk = backend or self.backend
+        F = bk.zeros((len(X), 0))
+        sparse = X.shape[1] != self.D
+        vocab_size = self.D // X.shape[1] if sparse else 0
+        masks = []
+        for Wr, br in zip(self.frozen_W, self.frozen_b):
+            if sparse:
+                zin = bk.zeros((len(X), Wr.shape[1]))
+                for k in range(X.shape[1]):
+                    zin = zin + bk.gather(Wr[:self.D], k * vocab_size + X[:, k])
+            else:
+                zin = bk.matmul(X, Wr[:self.D])
+            pre = zin + bk.matmul(F, Wr[self.D:]) + br
+            A = bk.relu(pre)
+            fired = bk.asarray(A).max(0) > 0
+            masks.append(bk.where(fired))
+            F = bk.concatenate([F, A], 1)
+        return masks
+
     def acc(self, y, which="te"):
         logits = (self.frozen_te if which == "te" else self.frozen_tr) + self.bias
         return float((logits.argmax(1) == y).mean())
