@@ -83,9 +83,13 @@ def hier_teacher_data(D=20, hid=(10, 10), C=4, N=4000, ntr=3000, seed=0):
 class ConsolidatingNet:
     """A net that grows a FROZEN axiom core outward, one consolidation round at a time."""
 
-    def __init__(self, D, C, seed=0):
+    def __init__(self, D, C, seed=0, backend=None):
         self.D, self.C = D, C
         self.rng = np.random.default_rng(seed)
+        if backend is None:
+            from demo.backend import NumpyBackend
+            backend = NumpyBackend()
+        self.backend = backend
         self.Ftr = np.zeros((0, 0))   # cached frozen established features (set per fit)
         self.Fte = np.zeros((0, 0))
         self.frozen_tr = None         # accumulated frozen readout logits (train / test)
@@ -144,10 +148,10 @@ class ConsolidatingNet:
         with different probabilities) rather than only the single argmax. This is the foster-parent
         mechanism: a frontier LLM's soft targets raise the child."""
         self._ensure(Xtr, Xte)
-        Ztr = np.concatenate([Xtr, self.Ftr], 1)      # candidates read [inputs | frozen base]
-        Zte = np.concatenate([Xte, self.Fte], 1)
-        din, n = Ztr.shape[1], len(ytr)
-        n_base = din - self.D                         # frozen fibers available to compose
+        bk = self.backend
+        din = self.D + self.Ftr.shape[1]              # input dim = D inputs + frozen base
+        n = len(ytr)
+        n_base = self.Ftr.shape[1]                    # frozen fibers available to compose
         tight = n_base > 0 and tau > 0
         W = self.rng.normal(0, np.sqrt(2 / din), (din, P))  # overproduce P candidates
         b = np.zeros(P)
@@ -161,6 +165,20 @@ class ConsolidatingNet:
         else:
             onehot = np.eye(self.C)[ytr]
 
+        # SPARSE input layer: pre = (sum_k W[:D][token_k]) + F @ W[D:] + b.
+        # If X is already one-hot (N, D), pre = X @ W[:D] + F @ W[D:] + b (legacy).
+        sparse = Xtr.shape[1] != self.D
+        vocab_size = self.D // Xtr.shape[1] if sparse else 0   # position k token t -> index k*vocab_size+t
+        def _pre(X, F, W, b):
+            if sparse:
+                # input contribution = sum over window positions of W[k*vocab_size + token_k, :]  (N, P)
+                zin = bk.zeros((len(X), W.shape[1]))
+                for k in range(X.shape[1]):
+                    zin = zin + bk.gather(W[:self.D], k * vocab_size + X[:, k])
+            else:
+                zin = bk.matmul(X, W[:self.D])
+            return zin + bk.matmul(F, W[self.D:]) + b
+
         # FORCE + REWARD: per-row weight decay -- raw-input reads get costlier as tau rises, frozen
         # base reads get cheaper, so gradient descent routes signal THROUGH existing fibers.
         row_wd = np.full((din, 1), wd)
@@ -168,7 +186,7 @@ class ConsolidatingNet:
             row_wd[:self.D] = wd * (1.0 + 5.0 * tau)   # inputs: penalized
             row_wd[self.D:] = wd * (1.0 - 0.8 * tau)   # base: rewarded (stays >= 0.2*wd)
         for _ in range(epochs):
-            pre = Ztr @ W + b; A = np.maximum(pre, 0)
+            pre = _pre(Xtr, self.Ftr, W, b); A = np.maximum(pre, 0)
             logits = self.frozen_tr + A @ V + db + self.bias
             dl = (softmax(logits) - onehot) / n
             dV = A.T @ dl + wd * V; ddb = dl.sum(0)
@@ -180,11 +198,19 @@ class ConsolidatingNet:
                 near = anchors[np.argmax(Vn @ anchors.T, axis=1)]          # (P, C) nearest unit anchor
                 dV += magnet * (V - (V * near).sum(1, keepdims=True) * near)
             dpre = (dl @ V.T) * (pre > 0)
-            dW = Ztr.T @ dpre + row_wd * W; dbb = dpre.sum(0)
+            # backward: dW[D:] = F.T @ dpre (frozen base); dW[:D] = sparse scatter of dpre
+            dW = bk.zeros_like(W)
+            dW[self.D:] = self.Ftr.T @ dpre
+            if sparse:
+                for k in range(Xtr.shape[1]):
+                    np.add.at(dW[:self.D], k * vocab_size + Xtr[:, k], dpre)
+            else:
+                dW[:self.D] = Xtr.T @ dpre
+            dW = dW + row_wd * W; dbb = dpre.sum(0)
             W -= lr * dW; b -= lr * dbb; V -= lr * dV; db -= lr * ddb
 
         # (1) UNIT prune: a candidate that moves the output relates to something; the void does not.
-        contribution = np.linalg.norm(V, axis=1) * np.maximum(Ztr @ W + b, 0).std(0)
+        contribution = np.linalg.norm(V, axis=1) * np.maximum(_pre(Xtr, self.Ftr, W, b), 0).std(0)
         keep = np.where(contribution >= floor * contribution.max())[0]
         W, b, V = W[:, keep], b[keep], V[keep]
 
@@ -223,12 +249,12 @@ class ConsolidatingNet:
         # re-solidify the readout + unit biases after pruning (connections W fixed; frozen base
         # and its bias untouched) -- the same "retrain the survivors" step as magnitude pruning.
         for _ in range(refit):
-            pre = Ztr @ W + b; A = np.maximum(pre, 0)
+            pre = _pre(Xtr, self.Ftr, W, b); A = np.maximum(pre, 0)
             dl = (softmax(self.frozen_tr + A @ V + db + self.bias) - onehot) / n
             dpre = (dl @ V.T) * (pre > 0)
             V -= lr * (A.T @ dl + wd * V); db -= lr * dl.sum(0); b -= lr * dpre.sum(0)
 
-        Atr = np.maximum(Ztr @ W + b, 0); Ate = np.maximum(Zte @ W + b, 0)
+        Atr = np.maximum(_pre(Xtr, self.Ftr, W, b), 0); Ate = np.maximum(_pre(Xte, self.Fte, W, b), 0)
 
         # distance-from-axiom over SURVIVING incoming connections (inputs dist 0, est fibers stored)
         src_dist = np.concatenate([np.zeros(self.D), np.array(self.dist)]) if self.dist else np.zeros(self.D)

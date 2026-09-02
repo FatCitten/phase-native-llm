@@ -34,14 +34,35 @@ from experiments.multi_teacher import shared_primitive_teachers
 RESULTS = Path("results")
 
 
-def forward_logits(net, X):
-    """Forward a frozen spine on ARBITRARY inputs X (recompute every fiber, then the readout)."""
-    F = np.zeros((len(X), 0)); logits = np.zeros((len(X), net.C))
+def forward_logits(net, X, backend=None):
+    """Forward a frozen spine on inputs X. X is (N, W) integer token indices (sparse)
+    OR (N, D) one-hot (legacy). The input layer is a gather (W[token]) instead of a
+    dense one-hot matmul. Returns logits (N, C)."""
+    bk = backend or getattr(net, "backend", None) or _get_numpy_backend()
+    F = bk.zeros((len(X), 0)); logits = bk.zeros((len(X), net.C))
+    sparse = X.shape[1] != net.D
+    V = net.D // X.shape[1] if sparse else 0   # vocab size (position k token t -> index k*V+t)
     for Wr, Vr, br in zip(net.frozen_W, net.frozen_V, net.frozen_b):
-        A = np.maximum(np.concatenate([X, F], 1) @ Wr + br, 0)
-        logits = logits + A @ Vr
-        F = np.concatenate([F, A], 1)
+        if sparse:  # integer tokens (N, W): input contribution = sum_k Wr[k*V + token_k]  (N, P)
+            zin = bk.zeros((len(X), Wr.shape[1]))
+            for k in range(X.shape[1]):
+                zin = zin + bk.gather(Wr[:net.D], k * V + X[:, k])
+        else:  # one-hot (N, D)
+            zin = bk.matmul(X, Wr[:net.D])
+        pre = zin + bk.matmul(F, Wr[net.D:]) + br
+        A = bk.relu(pre)
+        logits = logits + bk.matmul(A, Vr)
+        F = bk.concatenate([F, A], 1)
     return logits + net.bias
+
+
+_numpy_backend = None
+def _get_numpy_backend():
+    global _numpy_backend
+    if _numpy_backend is None:
+        from demo.backend import NumpyBackend
+        _numpy_backend = NumpyBackend()
+    return _numpy_backend
 
 
 def predict(net, X):
