@@ -45,10 +45,44 @@ class SignalEngine:
         `y` is only used for its length (the soft matrix is the real target).
         Grows on X (train) and evaluates on the engine's test set (X_new).
         Returns the round stats (kept/void_frac/cross_edges)."""
+        # recompute the frozen-base activations for the NEW input sets. grow_round
+        # caches Ftr/Fte from the original training; a new round on different-sized
+        # data must recompute them by running the frozen weights forward.
+        self._recompute_base(X, self.X_new)
         stats = self.net.grow_round(X, y, self.X_new, self.y_new, P=P, epochs=epochs,
                                     tau=tau, floor=floor, soft=soft)
         self.signal_log.append(stats)
         return stats
+
+    def _recompute_base(self, Xtr, Xte):
+        """Run the frozen weights forward on new inputs to rebuild Ftr/Fte/frozen_tr/te.
+        Preserves the frozen WEIGHTS (the established structure); only the cached
+        activations are recomputed for the new input set."""
+        from experiments.society import forward_logits
+        net = self.net
+        # recompute per-round activations
+        def _acts(X):
+            F = np.zeros((len(X), 0)); As = []
+            for Wr, br in zip(net.frozen_W, net.frozen_b):
+                if X.shape[1] == net.D:
+                    zin = X @ Wr[:net.D]
+                else:
+                    zin = np.zeros((len(X), Wr.shape[1]))
+                    for k in range(X.shape[1]):
+                        zin = zin + Wr[:net.D][k * (net.D // X.shape[1]) + X[:, k]]
+                A = np.maximum(zin + F @ Wr[net.D:] + br, 0)
+                As.append(A); F = np.concatenate([F, A], 1)
+            return As
+        Atr = _acts(Xtr); Ate = _acts(Xte)
+        net.Ftr = np.concatenate(Atr, 1) if Atr else np.zeros((len(Xtr), 0))
+        net.Fte = np.concatenate(Ate, 1) if Ate else np.zeros((len(Xte), 0))
+        # frozen readout logits = sum of A @ V over rounds
+        net.frozen_tr = np.zeros((len(Xtr), net.C))
+        net.frozen_te = np.zeros((len(Xte), net.C))
+        for r, (A, V) in enumerate(zip(Atr, net.frozen_V)):
+            net.frozen_tr = net.frozen_tr + A @ V
+        for r, (A, V) in enumerate(zip(Ate, net.frozen_V)):
+            net.frozen_te = net.frozen_te + A @ V
 
     def measure(self):
         """cps + no-forgetting of the current child."""
