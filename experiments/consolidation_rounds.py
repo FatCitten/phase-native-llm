@@ -190,16 +190,15 @@ class ConsolidatingNet:
 
         # SPARSE input layer: pre = (sum_k W[:D][token_k]) + F @ W[D:] + b.
         # If X is already one-hot (N, D), pre = X @ W[:D] + F @ W[D:] + b (legacy).
-        sparse = Xtr.shape[1] != self.D
-        vocab_size = self.D // Xtr.shape[1] if sparse else 0   # position k token t -> index k*vocab_size+t
+        # Decide per-input: Xtr may be one-hot (soft targets) while Xte is integer tokens.
         def _pre(X, F, W, b):
-            if sparse:
-                # input contribution = sum over window positions of W[k*vocab_size + token_k, :]  (N, P)
+            if X.shape[1] == self.D:  # one-hot (N, D)
+                zin = bk.matmul(X, W[:self.D])
+            else:  # integer tokens (N, W): sum_k W[k*vocab_size + token_k]
+                vocab_size = self.D // X.shape[1]
                 zin = bk.zeros((len(X), W.shape[1]))
                 for k in range(X.shape[1]):
                     zin = zin + bk.gather(W[:self.D], k * vocab_size + X[:, k])
-            else:
-                zin = bk.matmul(X, W[:self.D])
             return zin + bk.matmul(F, W[self.D:]) + b
 
         # FORCE + REWARD: per-row weight decay -- raw-input reads get costlier as tau rises, frozen
@@ -224,11 +223,12 @@ class ConsolidatingNet:
             # backward: dW[D:] = F.T @ dpre (frozen base); dW[:D] = sparse scatter of dpre
             dW = bk.zeros_like(W)
             dW[self.D:] = self.Ftr.T @ dpre
-            if sparse:
+            if Xtr.shape[1] == self.D:  # one-hot
+                dW[:self.D] = Xtr.T @ dpre
+            else:  # integer tokens: scatter dpre into W[token] rows
+                vocab_size = self.D // Xtr.shape[1]
                 for k in range(Xtr.shape[1]):
                     np.add.at(dW[:self.D], k * vocab_size + Xtr[:, k], dpre)
-            else:
-                dW[:self.D] = Xtr.T @ dpre
             dW = dW + row_wd * W; dbb = dpre.sum(0)
             W -= lr * dW; b -= lr * dbb; V -= lr * dV; db -= lr * ddb
 
