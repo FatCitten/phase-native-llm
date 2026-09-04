@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nautilus Instrument — see the structure</title>
+<style>
+  :root { --green:#2e7d32; --red:#c62828; --blue:#1565c0; --ink:#1a1a1a; --bg:#f6f7f9; --card:#fff; --line:#e2e4e8; }
+  * { box-sizing:border-box; }
+  body { font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--ink); margin:0; padding:16px; line-height:1.5; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  h1 { font-size:1.5rem; margin:0 0 2px; }
+  .sub { color:#555; font-size:.9rem; margin-bottom:12px; }
+  .topbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .topbar button { background:var(--blue); color:#fff; border:none; padding:8px 14px; font-size:.85rem; border-radius:7px; cursor:pointer; }
+  .topbar button:hover { filter:brightness(1.08); }
+  .topbar button.sec { background:#555; }
+  .metrics { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .metric { background:#f0f1f4; border-radius:8px; padding:8px 14px; min-width:110px; }
+  .metric .k { font-size:.7rem; color:#666; text-transform:uppercase; letter-spacing:.04em; }
+  .metric .v { font-size:1.2rem; font-weight:600; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:900px) { .grid { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .card h2 { font-size:1rem; margin:0 0 10px; }
+  canvas { width:100%; height:480px; background:#0f1115; border-radius:8px; display:block; }
+  .legend { font-size:.75rem; color:#888; margin-top:6px; }
+  .legend span { display:inline-block; margin-right:14px; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:middle; }
+  .trace { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:.8rem; background:#0f1115; color:#d7dae0; border-radius:8px; padding:10px; white-space:pre-wrap; word-break:break-word; min-height:40px; }
+  label { font-size:.8rem; font-weight:600; display:block; margin:8px 0 4px; }
+  input[type=text], input[type=number] { width:100%; padding:8px 10px; font-size:.9rem; border:1px solid #ccc; border-radius:7px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .row input { width:auto; flex:1; }
+  .row input[type=number] { width:70px; flex:0; }
+  .foot { font-size:.75rem; color:#888; margin-top:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Nautilus Instrument</h1>
+  <div class="sub">Load any Nautilus structure and SEE it: fibers as nodes (sized by readout, colored by distance-from-axiom), connections as edges, the trace highlighted. Click a fiber to edit it.</div>
+
+  <div class="topbar">
+    <button onclick="loadDefault()">Load default</button>
+    <button class="sec" onclick="loadFile()">Load from file</button>
+    <input type="file" id="loadfile" accept=".json" style="display:none">
+    <button onclick="refresh()">Refresh</button>
+  </div>
+
+  <div class="metrics">
+    <div class="metric"><div class="k">Capability/synapse</div><div class="v" id="m-cps">—</div></div>
+    <div class="metric"><div class="k">Old acc (no-forget)</div><div class="v" id="m-old">—</div></div>
+    <div class="metric"><div class="k">New acc</div><div class="v" id="m-new">—</div></div>
+    <div class="metric"><div class="k">Synapses</div><div class="v" id="m-syn">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>The structure (graph)</h2>
+      <canvas id="graph" width="560" height="480"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#2e7d32"></span>near axiom</span>
+        <span><span class="dot" style="background:#c62828"></span>far from axiom</span>
+        <span><span class="dot" style="background:#1565c0"></span>input</span>
+        <span>node size = readout magnitude</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Trace a prediction</h2>
+      <label for="tinput">Input context</label>
+      <input type="text" id="tinput" value="alice was beginning to">
+      <button onclick="trace()">Trace</button>
+      <div class="trace" id="traceout">(trace appears here)</div>
+      <h2>Edit the structure</h2>
+      <div class="row">
+        <input type="number" id="eround" value="0" min="0">
+        <input type="number" id="efiber" value="0" min="0">
+      </div>
+      <div class="row">
+        <button onclick="edit('zero')">Zero</button>
+        <button onclick="edit('prune')">Prune</button>
+        <button onclick="edit('add')">Add fiber</button>
+      </div>
+      <div class="trace" id="editout">(edit result appears here)</div>
+    </div>
+  </div>
+
+  <div class="foot">Nautilus Instrument · load any structure, trace why it fired, edit it · for human researchers.</div>
+</div>
+
+<script>
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+let graph = { nodes: [], edges: [] };
+
+function api(path, body) {
+  return fetch(path, { method:'POST', headers:{'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : '{}' }).then(r => r.json());
+}
+function refresh() { api('/graph').then(d => { graph = d; draw(); loadMetrics(); }); }
+function loadDefault() { api('/load', {}).then(d => { graph = d; draw(); loadMetrics(); }); }
+function loadFile() { document.getElementById('loadfile').click(); }
+document.getElementById('loadfile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => api('/load', { data: reader.result }).then(d => { graph = d; draw(); loadMetrics(); });
+  reader.readAsText(f);
+});
+function loadMetrics() {
+  api('/metrics').then(m => {
+    document.getElementById('m-cps').textContent = m.cps.toFixed(4);
+    document.getElementById('m-old').textContent = m.old_acc.toFixed(3);
+    document.getElementById('m-new').textContent = m.new_acc.toFixed(3);
+    document.getElementById('m-syn').textContent = m.synapses;
+  });
+}
+function trace() {
+  const input = document.getElementById('tinput').value;
+  api('/trace', { input }).then(t => {
+    const steps = t.steps.map(s => {
+      const n = s.node;
+      return n[0] === 'input' ? 'input[' + n[1] + ']' : 'fiber(r' + n[1] + ',#' + n[2] + ')';
+    });
+    document.getElementById('traceout').textContent = 'pred_class=' + t.pred_class + ' :: ' + steps.join(' <- ');
+    highlightTrace(t.steps);
+  });
+}
+function edit(action) {
+  const r = parseInt(document.getElementById('eround').value);
+  const j = parseInt(document.getElementById('efiber').value);
+  api('/edit', { action, round: r, fiber: j }).then(d => {
+    if (d.error) { document.getElementById('editout').textContent = 'ERROR: ' + d.error; return; }
+    graph = d; draw(); loadMetrics();
+    document.getElementById('editout').textContent = action + ' fiber(' + r + ',' + j + ')';
+  });
+}
+
+// ---- graph layout: simple force-ish radial by round ----
+function layout() {
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2;
+  const byRound = {};
+  graph.nodes.forEach(n => { (byRound[n.round] = byRound[n.round] || []).push(n); });
+  const rounds = Object.keys(byRound).map(Number).sort((a,b)=>a-b);
+  const maxDist = Math.max(...graph.nodes.map(n => n.dist), 1);
+  rounds.forEach((r, ri) => {
+    const radius = 60 + ri * 90;
+    const nodes = byRound[r];
+    nodes.forEach((n, i) => {
+      const ang = (i / nodes.length) * 2 * Math.PI - Math.PI/2;
+      n.x = cx + radius * Math.cos(ang);
+      n.y = cy + radius * Math.sin(ang);
+      n.color = distColor(n.dist, maxDist);
+      n.size = 4 + n.readout_mag * 3;
+    });
+  });
+  // inputs on the far left
+  const nIn = Math.min(graph.D, 20);
+  for (let i = 0; i < nIn; i++) {
+    graph.nodes.push({ id:'in_'+i, x: 20, y: 20 + i*(H-40)/nIn, color:'#1565c0', size:3, isInput:true });
+  }
+}
+function distColor(d, max) {
+  const t = Math.min(d / max, 1);
+  // green (near) -> red (far)
+  const r = Math.round(46 + (198-46)*t), g = Math.round(125 - 125*t), b = Math.round(50 - 50*t);
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = '#0f1115'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  layout();
+  // edges
+  ctx.lineWidth = 0.5;
+  graph.edges.forEach(e => {
+    const a = graph.nodes.find(n => n.id === e.from);
+    const b = graph.nodes.find(n => n.id === e.to);
+    if (!a || !b) return;
+    ctx.strokeStyle = 'rgba(120,130,150,0.25)';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  });
+  // nodes
+  graph.nodes.forEach(n => {
+    if (n.isInput) { ctx.fillStyle = n.color; ctx.beginPath(); ctx.arc(n.x, n.y, n.size, 0, 2*Math.PI); ctx.fill(); return; }
+    ctx.fillStyle = n.color;
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.size, 0, 2*Math.PI); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+}
+function highlightTrace(steps) {
+  // re-draw with the trace path highlighted in red
+  draw();
+  ctx.lineWidth = 3; ctx.strokeStyle = '#ff5252';
+  const ids = [];
+  steps.forEach(s => {
+    const n = s.node;
+    ids.push(n[0] === 'input' ? 'in_' + n[1] : 'f' + n[1] + '_' + n[2]);
+  });
+  for (let i = 0; i < ids.length - 1; i++) {
+    const a = graph.nodes.find(n => n.id === ids[i]);
+    const b = graph.nodes.find(n => n.id === ids[i+1]);
+    if (a && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  }
+}
+
+// init
+loadDefault();
+</script>
+</body>
+</html>
