@@ -578,6 +578,21 @@ def test_forced_recall_matches_full():
     check("recall mask prunes some fibers", total < all_fibers)
 
 
+def test_metrics():
+    print("capability-per-synapse + no-forgetting metrics")
+    from demo import metrics, backend
+    from experiments.consolidation_rounds import ConsolidatingNet
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
+    cps = metrics.capability_per_synapse(net, Xte, yte)
+    check("cps is a positive finite number", np.isfinite(cps) and cps > 0)
+    old_acc, new_acc = metrics.no_forgetting(net, Xte, yte, Xte, yte)
+    check("no_forgetting returns two accs in [0,1]", 0 <= old_acc <= 1 and 0 <= new_acc <= 1)
+    check("old_acc == new_acc when data is identical", abs(old_acc - new_acc) < 1e-9)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -585,7 +600,7 @@ def main():
               test_structure_machine, test_visualizer,
               test_sparse_window_words, test_backend_parity,
               test_sparse_forward_matches_onehot, test_sparse_grow_matches_onehot,
-              test_forced_recall_matches_full):
+              test_forced_recall_matches_full, test_metrics):
         t()
     print()
     if _failures:
