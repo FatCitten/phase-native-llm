@@ -593,6 +593,30 @@ def test_metrics():
     check("old_acc == new_acc when data is identical", abs(old_acc - new_acc) < 1e-9)
 
 
+def test_signal_engine():
+    print("SignalEngine: teacher twinge -> child decides what sticks")
+    from demo import signal_engine, backend
+    from experiments.consolidation_rounds import ConsolidatingNet
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
+    se = signal_engine.SignalEngine(net, vocab, W, Xte, yte, Xte, yte)
+    m = se.measure()
+    check("measure returns cps + old_acc + new_acc", all(k in m for k in ("cps","old_acc","new_acc")))
+    check("cps is finite", np.isfinite(m["cps"]))
+    # grow a round with soft targets (label smoothing as a stand-in teacher)
+    onehot = np.eye(C)[ytr]
+    soft = 0.8 * onehot + 0.2 / C
+    n_before = len(net.frozen_W)
+    m_before = se.measure()
+    se.grow_on_signals(Xtr, ytr, P=32, epochs=30, tau=0.0, soft=soft)
+    check("grew a new round", len(net.frozen_W) == n_before + 1)
+    check("round stats recorded in signal_log", len(se.signal_log) == 1)
+    m_after = se.measure()
+    check("measure reflects the grown child", m_after != m_before)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -600,7 +624,7 @@ def main():
               test_structure_machine, test_visualizer,
               test_sparse_window_words, test_backend_parity,
               test_sparse_forward_matches_onehot, test_sparse_grow_matches_onehot,
-              test_forced_recall_matches_full, test_metrics):
+              test_forced_recall_matches_full, test_metrics, test_signal_engine):
         t()
     print()
     if _failures:
