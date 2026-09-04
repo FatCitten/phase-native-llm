@@ -512,23 +512,29 @@ def test_backend_parity():
         print("  [SKIP] torch not installed — numpy path verified")
 
 
+def _tiny_word_data(seed=1):
+    """Tiny synthetic word data for fast tests: small vocab, small N, few epochs.
+    Returns (Xtr, ytr, Xte, yte, vocab, W, D, C). Runs in <1s."""
+    from demo import wordlm
+    vocab = ["<UNK>", "the", "cat", "sat", "on", "mat", "dog", "ran"]
+    W = 3
+    rng = np.random.default_rng(seed)
+    tokens = [vocab[int(rng.integers(1, len(vocab)))] for _ in range(400)]
+    X, y = wordlm.window_words(tokens, W, vocab)
+    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=seed)
+    D = W * len(vocab); C = len(vocab)
+    return Xtr, ytr, Xte, yte, vocab, W, D, C
+
+
 def test_sparse_forward_matches_onehot():
     print("sparse forward matches one-hot forward")
     from demo import wordlm, backend
-    from demo.demo import load_sections
     from experiments.consolidation_rounds import ConsolidatingNet
     from experiments.society import forward_logits
-    s = load_sections("demo/corpus.txt")
-    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
-    W = 4
-    tokens = wordlm.tokenize(" ".join(s.values()))
-    X, y = wordlm.window_words(tokens, W, vocab)   # integer (N, W)
-    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
-    D = W * len(vocab); C = len(vocab)
-    net = ConsolidatingNet(D, C, seed=1)
-    net.backend = backend.NumpyBackend()
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
     for r in range(2):
-        net.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
     Xoh = wordlm.one_hot(Xte, len(vocab))
     l_oh = forward_logits(net, Xoh)
     l_sp = forward_logits(net, Xte)   # integer tokens
@@ -538,23 +544,15 @@ def test_sparse_forward_matches_onehot():
 def test_sparse_grow_matches_onehot():
     print("sparse grow_round matches one-hot grow_round")
     from demo import wordlm, backend
-    from demo.demo import load_sections
     from experiments.consolidation_rounds import ConsolidatingNet
-    s = load_sections("demo/corpus.txt")
-    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
-    W = 4
-    tokens = wordlm.tokenize(" ".join(s.values()))
-    X, y = wordlm.window_words(tokens, W, vocab)
-    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
-    D = W * len(vocab); C = len(vocab)
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
     net_oh = ConsolidatingNet(D, C, seed=1)
     Xoh_tr = wordlm.one_hot(Xtr, len(vocab)); Xoh_te = wordlm.one_hot(Xte, len(vocab))
     for r in range(2):
-        net_oh.grow_round(Xoh_tr, ytr, Xoh_te, yte, P=32, epochs=50, tau=0.0)
-    net_sp = ConsolidatingNet(D, C, seed=1)
-    net_sp.backend = backend.NumpyBackend()
+        net_oh.grow_round(Xoh_tr, ytr, Xoh_te, yte, P=16, epochs=30, tau=0.0)
+    net_sp = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
     for r in range(2):
-        net_sp.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
+        net_sp.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
     check("same accuracy", abs(net_oh.acc(yte) - net_sp.acc(yte)) < 1e-6)
     check("same number of rounds", len(net_oh.frozen_W) == len(net_sp.frozen_W))
     same = all(np.allclose(a, b, atol=1e-6) for a, b in zip(net_oh.frozen_W, net_sp.frozen_W))
@@ -563,24 +561,17 @@ def test_sparse_grow_matches_onehot():
 
 def test_forced_recall_matches_full():
     print("forced-recall masked forward matches full forward")
-    from demo import wordlm, backend
-    from demo.demo import load_sections
+    from demo import backend
     from experiments.consolidation_rounds import ConsolidatingNet
     from experiments.society import forward_logits, forward_logits_masked
-    s = load_sections("demo/corpus.txt")
-    vocab = wordlm.build_vocab(list(s.values()), min_freq=5)
-    W = 4
-    tokens = wordlm.tokenize(" ".join(s.values()))
-    X, y = wordlm.window_words(tokens, W, vocab)
-    Xtr, ytr, Xte, yte = wordlm.split(X, y, frac=0.8, seed=1)
-    D = W * len(vocab); C = len(vocab)
-    net = ConsolidatingNet(D, C, seed=1)
-    net.backend = backend.NumpyBackend()
-    for r in range(2):
-        net.grow_round(Xtr, ytr, Xte, yte, P=32, epochs=50, tau=0.0)
-    masks = net.recall_mask(Xte)
-    l_full = forward_logits(net, Xte)
-    l_masked = forward_logits_masked(net, Xte, masks)
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(3):   # 3 rounds, more fibers -> some dead
+        net.grow_round(Xtr, ytr, Xte, yte, P=48, epochs=30, tau=0.0)
+    # mask on a SINGLE sample: most fibers won't fire, so the mask genuinely prunes
+    masks = net.recall_mask(Xte[:1])
+    l_full = forward_logits(net, Xte[:1])
+    l_masked = forward_logits_masked(net, Xte[:1], masks)
     check("masked forward == full forward", np.allclose(l_full, l_masked, atol=1e-6))
     total = sum(len(m) for m in masks)
     all_fibers = sum(Wr.shape[1] for Wr in net.frozen_W)
