@@ -30,3 +30,18 @@ def no_forgetting(net, X_old, y_old, X_new, y_new):
     old_acc = float((forward_logits(net, X_old).argmax(1) == y_old).mean())
     new_acc = float((forward_logits(net, X_new).argmax(1) == y_new).mean())
     return old_acc, new_acc
+
+
+def phi_diagnostic(net):
+    """Measure whether the structure's ratios approach the golden ratio (1.618...)
+    as it collapses. Returns the ratio of consecutive round fiber counts, and how
+    close the mean is to phi. This is a DIAGNOSTIC — phi should EMERGE from repeated
+    collapse, not be imposed."""
+    counts = [W.shape[1] for W in net.frozen_W]
+    if len(counts) < 2:
+        return {"ratios": [], "mean_ratio": None, "phi_error": None}
+    ratios = [counts[i + 1] / counts[i] for i in range(len(counts) - 1) if counts[i] > 0]
+    mean_ratio = float(np.mean(ratios)) if ratios else None
+    phi = (1 + 5 ** 0.5) / 2
+    phi_error = abs(mean_ratio - phi) if mean_ratio else None
+    return {"ratios": ratios, "mean_ratio": mean_ratio, "phi_error": phi_error}
