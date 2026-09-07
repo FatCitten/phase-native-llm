@@ -54,6 +54,41 @@ class SignalEngine:
         self.signal_log.append(stats)
         return stats
 
+    def refine_on_signals(self, X, y, soft, epochs=200, lr=0.05, wd=1e-4):
+        """Refine the EXISTING readout (frozen_V + bias) toward the teacher's soft
+        targets. Does NOT add a new round — the frozen structure (W) stays intact,
+        only the readout adjusts. This is the gentle path: it cannot add a dominating
+        noise layer, so it should preserve accuracy (unlike grow_on_signals, which
+        collapsed the child last run by adding a whole new round on 10 contexts).
+
+        `soft` is (n, C) teacher probabilities; `y` is only used for its length.
+        Returns {"refined": True, "epochs": epochs}."""
+        net = self.net
+        self._recompute_base(X, self.X_new)
+        A = net.Ftr  # (n, total_fibers) activations of the frozen base
+        V = np.concatenate(net.frozen_V, 0)  # (total_fibers, C)
+        b = net.bias.copy()
+        n = len(X)
+        soft = np.asarray(soft, float)
+        if soft.shape != (n, net.C):
+            raise ValueError(f"soft targets shape {soft.shape} != (n={n}, C={net.C})")
+        for _ in range(epochs):
+            logits = A @ V + b
+            lsm = logits - logits.max(1, keepdims=True)
+            lsm = lsm - np.log(np.exp(lsm).sum(1, keepdims=True))
+            sm = np.exp(lsm)
+            dl = (sm - soft) / n
+            V -= lr * (A.T @ dl + wd * V)
+            b -= lr * dl.sum(0)
+        # write V back into frozen_V (split by round)
+        idx = 0
+        for r in range(len(net.frozen_V)):
+            w = net.frozen_V[r].shape[0]
+            net.frozen_V[r] = V[idx:idx + w].copy()
+            idx += w
+        net.bias = b
+        return {"refined": True, "epochs": epochs}
+
     def _recompute_base(self, Xtr, Xte):
         """Run the frozen weights forward on new inputs to rebuild Ftr/Fte/frozen_tr/te.
         Preserves the frozen WEIGHTS (the established structure); only the cached
