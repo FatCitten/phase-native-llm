@@ -18,24 +18,36 @@ no CUDA). Any experiment drifting toward "train a big model" gets flagged.
 - Frontier branch `claude/custom-llm-training-arch-38028m` checked out on disk at
   `/home/meowar/areeyh/phase-native-llm`. Master is STALE.
 - venv `.venv` set up (numpy, scipy, matplotlib, anthropic).
-- Test suite: **1 FAILURE** — `recall mask prunes some fibers`.
-  - Root cause: config artifact. With 2 rounds / 50 epochs / tiny corpus, every
-    fiber fires on the test set, so the mask is valid (masked==full passes) but
-    not selective (total == all_fibers). NOT a correctness bug.
-  - Fix direction: use a config where pruning actually happens (more rounds /
-    more fibers / sparser data), don't weaken the assert.
-- Suite takes ~8 min — VIOLATES FAST OR USELESS. Needs shrinking to <30s.
-- Word-level next-token: Round 1 hit 24.97% next-word acc on 457-word vocab
-  (~100x chance). Real language signal.
+- Test suite: **ALL PASS**, runs in **~10s** (was 8 min — the `_tiny_word_data()`
+  refactor fixed FAST OR USELESS). Command: `python tests/test_phase_native.py`.
+- The remote has moved past the old handoff: current frontier is the
+  **signal-engine / guide-loop** arc (see below).
 
-## The 4 Pillars (what Nautilus IS)
+## The Current Frontier — "the LLM guides, the structure decides"
 
-1. **Legible** — StructureEngine / NautilusVisualizer: observe every fiber's
-   distance-from-axiom, sources, readout. One source of truth, two viewers.
-2. **Editable** — edit fibers (zero/prune/rewire/add, set readout) with append-only
-   safety guards. An LLM (llm_play.py) explores and edits live.
-3. **Durable** — save_structure / load_structure / read / write. Round-trips exactly.
-4. **Collaborative** — live website where human + LLM watch training and collaborate.
+The headline loop (`demo/guide_loop.py`): a frontier LLM emits TWINGES (soft
+next-word distributions on contexts). The child grows a consolidation round with
+soft targets — its OWN overproduce->prune->freeze dynamics decide which signals
+STICK. The teacher GUIDES, the child's structure DECIDES.
+
+Key files (all under `demo/`):
+- `signal_engine.py` — SignalEngine: teacher_twinge, grow_on_signals,
+  refine_on_signals (nudge readout, no new round), digest_round (prune
+  non-load-bearing scaffolding), trauma_collapse (collapse tipping-point fibers,
+  rebuild from survivors), _recompute_base.
+- `guide_loop.py` — the headline loop. Run:
+  `python -m demo.guide_loop --model glm-5.3-flash --rounds 3 --contexts 20`
+  (default mode=refine; grow mode adds a new round).
+- `metrics.py` — capability_per_synapse, no_forgetting, phi_diagnostic (does the
+  structure's round-count ratios approach the golden ratio 1.618 as it collapses?
+  DIAGNOSTIC — phi should EMERGE, not be imposed).
+- `foster.py` — distillation harness (soft targets from frontier LLM).
+- `superiority.py` — honest MLP-vs-consolidation comparison.
+- `instrument.py` + `instrument.html` — graphical load/trace/edit tool.
+- `engine.py` / `visualizer.py` — StructureEngine / NautilusVisualizer.
+- `llm_play.py` — tool-calling loop: LLM engineers the structure live.
+- `wordlm.py` — word tokenizer, vocab, windowing, next-word training.
+- `PLUGIN_CONTRACT.md` — the one shape any Nautilus machine carries.
 
 ## Honest Results (with numbers)
 
@@ -47,16 +59,18 @@ no CUDA). Any experiment drifting toward "train a big model" gets flagged.
 | Glyph cap/synapse (x1e-3) | 0.43 vs MLP 0.01 | Nautilus ~43x |
 | Glyph no-forgetting (0-7 after 8-9) | 0.877 preserved vs MLP 0.923->0.000 | Nautilus wins |
 | Text no-forgetting | corpus A/B same task, nothing to forget | honest negative |
+| recall_mask pruning | every surviving fiber fires somewhere; mask is a no-op on trained net | finding |
 
 ## Open Threads / Next Experiments (pick one)
 
-1. **Matched-MLP comparison on the dashboard** — side-by-side Nautilus vs MLP on
-   next-word acc. The honest "superiority" proof. (Recommended.)
-2. **Fix the failing test** — config where recall mask actually prunes.
-3. **Shrink the test suite** — get it under 30s (FAST OR USELESS).
-4. **Run foster.py distillation** — frontier LLM as teacher, child trains on soft
-   targets. The proven path to a competitive small model.
-5. **Expand corpus** — more public-domain works for room to grow.
+1. **Run guide_loop with a real teacher** — the headline experiment. Needs the
+   OLLAMA key. Measure cps + no-forgetting + phi after each round. Honest framing:
+   if twinges don't improve metrics, report it plainly.
+2. **Matched-MLP comparison on the dashboard** — side-by-side Nautilus vs MLP on
+   next-word acc. The honest "superiority" proof.
+3. **Expand corpus** — more public-domain works for room to grow.
+4. **phi_diagnostic** — does phi actually emerge from repeated collapse? Currently
+   a diagnostic; needs a real run to see if the ratios approach 1.618.
 
 ## Kill-Criteria (state up front before any experiment)
 
