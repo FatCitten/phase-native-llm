@@ -89,6 +89,45 @@ class SignalEngine:
         net.bias = b
         return {"refined": True, "epochs": epochs}
 
+    def digest_round(self, X, y, keep_frac=0.5):
+        """DIGEST-THEN-FORGET: after a signal solidifies, prune the non-load-bearing
+        scaffolding fibers — those whose removal doesn't change the output. This is
+        the efficiency driver: the child keeps only the load-bearing structure and
+        discards the scaffolding that helped digest the signal but is no longer needed.
+
+        Load-bearing score = each fiber's contribution to the CORRECT-class logits on
+        samples where it fires: (A * V[:, y]).sum(0). Task-aligned — a fiber that fires
+        rarely but on the hard samples is still load-bearing.
+
+        SAFETY: only prunes the LAST round (append-only — earlier rounds are read by
+        later ones, so pruning them would break the input width). The last round is
+        where the most recent signal was digested anyway.
+
+        Returns {"kept": n, "pruned": n}."""
+        net = self.net
+        self._recompute_base(X, self.X_new)
+        A = net.Ftr  # (n, total_fibers) activations
+        V = np.concatenate(net.frozen_V, 0)  # (total_fibers, C)
+        # per-fiber contribution to the correct class, summed over samples:
+        # correct[f, i] = V[f, y[i]] (readout of fiber f to sample i's correct class)
+        y = np.asarray(y)
+        correct = V[:, y]  # (total_fibers, n)
+        load = (A * correct.T).sum(0)  # (total_fibers,) task-aligned load-bearing score
+        last = len(net.frozen_W) - 1
+        base = sum(len(w[0]) for w in net.frozen_W[:last])
+        n_last = net.frozen_W[last].shape[1]
+        local_load = load[base:base + n_last]
+        n_keep = max(1, int(keep_frac * n_last))
+        local_keep = np.argsort(local_load)[-n_keep:]  # keep the most load-bearing
+        # prune the scaffolding from the last round
+        net.frozen_W[last] = net.frozen_W[last][:, local_keep]
+        net.frozen_V[last] = net.frozen_V[last][local_keep]
+        net.frozen_b[last] = net.frozen_b[last][local_keep]
+        net.dist = net.dist[:base] + [net.dist[base + j] for j in local_keep]
+        # rebuild the activation caches (frozen_tr/te are now stale)
+        self._recompute_base(X, self.X_new)
+        return {"kept": int(len(local_keep)), "pruned": int(n_last - len(local_keep))}
+
     def _recompute_base(self, Xtr, Xte):
         """Run the frozen weights forward on new inputs to rebuild Ftr/Fte/frozen_tr/te.
         Preserves the frozen WEIGHTS (the established structure); only the cached

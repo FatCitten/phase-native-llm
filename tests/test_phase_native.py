@@ -637,6 +637,23 @@ def test_refine_preserves_accuracy():
     check("no new round added (structure unchanged)", len(net.frozen_W) == 2)
 
 
+def test_digest_preserves_accuracy():
+    print("digest_round prunes scaffolding, preserves accuracy")
+    from demo import signal_engine, backend
+    from experiments.consolidation_rounds import ConsolidatingNet
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
+    se = signal_engine.SignalEngine(net, vocab, W, Xte, yte, Xte, yte)
+    acc_before = se.measure()["new_acc"]
+    n_before = sum(Wr.shape[1] for Wr in net.frozen_W)
+    res = se.digest_round(Xtr, ytr, keep_frac=0.5)
+    n_after = sum(Wr.shape[1] for Wr in net.frozen_W)
+    check("digest pruned some fibers", n_after < n_before)
+    check("digest preserved accuracy (within 0.05)", se.measure()["new_acc"] >= acc_before - 0.05)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -645,7 +662,7 @@ def main():
               test_sparse_window_words, test_backend_parity,
               test_sparse_forward_matches_onehot, test_sparse_grow_matches_onehot,
               test_forced_recall_matches_full, test_metrics, test_signal_engine,
-              test_refine_preserves_accuracy):
+              test_refine_preserves_accuracy, test_digest_preserves_accuracy):
         t()
     print()
     if _failures:
