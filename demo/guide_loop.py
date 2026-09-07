@@ -38,6 +38,8 @@ def main():
     ap.add_argument("--contexts", type=int, default=20)
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--local", action="store_true")
+    ap.add_argument("--mode", choices=["refine", "grow"], default="refine",
+                    help="refine = nudge existing readout (gentle, default); grow = add a new round")
     args = ap.parse_args()
 
     print("=" * 72)
@@ -82,11 +84,24 @@ def main():
         from demo.foster import soft_target_matrix
         Xs, Ps, valid = soft_target_matrix(contexts, [d for _, d in twinges], vocab, W)
 
-        # grow the child on the teacher's signals (the child decides what sticks)
-        stats = se.grow_on_signals(Xs, np.zeros(len(Xs), dtype=int), P=24,
-                                   epochs=args.epochs, tau=0.0, soft=Ps)
-        print(f"grew round: kept {stats['kept']}/24, void_frac={stats['void_frac']:.2f}")
-        print(f"after round {r+1}: {json.dumps(se.measure(), default=float)}")
+        # grow/refine the child on the teacher's signals (the child decides what sticks)
+        if args.mode == "refine":
+            se.refine_on_signals(Xs, np.zeros(len(Xs), dtype=int), Ps, epochs=args.epochs)
+            print("refined readout toward teacher signals")
+        else:
+            stats = se.grow_on_signals(Xs, np.zeros(len(Xs), dtype=int), P=24,
+                                       epochs=args.epochs, tau=0.0, soft=Ps)
+            print(f"grew round: kept {stats['kept']}/24, void_frac={stats['void_frac']:.2f}")
+
+        # digest the scaffolding (prune non-load-bearing fibers)
+        digest = se.digest_round(Xs, np.zeros(len(Xs), dtype=int), keep_frac=0.7)
+        print(f"digested: kept {digest['kept']}, pruned {digest['pruned']}")
+
+        # report phi diagnostic
+        from demo import metrics
+        phi = metrics.phi_diagnostic(net)
+        print(f"after round {r+1}: {json.dumps(se.measure(), default=float)} "
+              f"phi_mean={phi['mean_ratio']}")
 
     # save the grown child
     from demo.engine import StructureEngine
