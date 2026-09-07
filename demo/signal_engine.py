@@ -128,6 +128,48 @@ class SignalEngine:
         self._recompute_base(X, self.X_new)
         return {"kept": int(len(local_keep)), "pruned": int(n_last - len(local_keep))}
 
+    def trauma_collapse(self, X, y, harm_frac=0.2, refit=200, lr=0.05, wd=1e-4):
+        """TRAUMA COLLAPSE: when the structure is failing, push on where it tips —
+        the fibers most responsible for WRONG outputs — collapse them, and rebuild
+        from what didn't snap. Extends flaw-break-reform with purposeful collapse.
+
+        The pain signal is internal minimality: a fiber that pushes the output toward
+        the WRONG class on failing samples is the tipping point. We zero its readout
+        (collapse it) and reform the survivors on the correct targets.
+
+        Returns the number of collapsed fibers (0 if not failing enough)."""
+        from experiments.consolidation_rounds import softmax
+        net = self.net
+        self._recompute_base(X, self.X_new)
+        A = net.Ftr
+        V = np.concatenate(net.frozen_V, 0)
+        b = net.bias.copy()
+        y = np.asarray(y)
+        pred = (A @ V + b).argmax(1)
+        flaw = pred != y
+        if flaw.sum() < 5:
+            return 0  # not failing enough to traumatize
+        # the fibers most responsible for the WRONG outputs (the tipping point)
+        Af, wrong = A[flaw], pred[flaw]
+        harm = (Af.T * V[:, wrong]).sum(1)  # per-fiber contribution to wrong logits
+        k = max(1, int(harm_frac * len(harm)))
+        collapse_idx = np.argsort(harm)[-k:]  # the tipping point
+        V[collapse_idx] = 0.0  # collapse them
+        # rebuild from survivors (reform the readout on the correct targets)
+        onehot = np.eye(net.C)[y]
+        for _ in range(refit):
+            logits = A @ V + b
+            dl = (softmax(logits) - onehot) / len(y)
+            V -= lr * (A.T @ dl + wd * V)
+            b -= lr * dl.sum(0)
+        idx = 0
+        for r in range(len(net.frozen_V)):
+            w = net.frozen_V[r].shape[0]
+            net.frozen_V[r] = V[idx:idx + w].copy()
+            idx += w
+        net.bias = b
+        return int(k)
+
     def _recompute_base(self, Xtr, Xte):
         """Run the frozen weights forward on new inputs to rebuild Ftr/Fte/frozen_tr/te.
         Preserves the frozen WEIGHTS (the established structure); only the cached
