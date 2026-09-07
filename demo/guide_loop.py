@@ -36,6 +36,8 @@ def main():
     ap.add_argument("--model", default="glm-5.3-flash")
     ap.add_argument("--rounds", type=int, default=3)
     ap.add_argument("--contexts", type=int, default=20)
+    ap.add_argument("--concepts", type=int, default=20,
+                    help="number of foundational concept words to center contexts on")
     ap.add_argument("--epochs", type=int, default=100)
     ap.add_argument("--local", action="store_true")
     ap.add_argument("--mode", choices=["refine", "grow"], default="refine",
@@ -70,11 +72,27 @@ def main():
     client = OllamaClient(host="http://localhost:11434" if args.local else None, timeout=120)
 
     for r in range(args.rounds):
-        # sample contexts, ask the teacher for twinges
+        # sample contexts CENTERED on foundational concepts (the most frequent words —
+        # the axioms). The teacher's twinges then focus on the core structure, not
+        # random noise, so the child can't overfit to a handful of random samples.
         rng = np.random.default_rng(r)
-        idx = rng.choice(len(Xtr), size=min(args.contexts, len(Xtr)), replace=False)
-        contexts = [[vocab[int(Xtr[i, k])] for k in range(W)] for i in idx]
-        print(f"\n--- round {r+1}: asking teacher for twinges on {len(contexts)} contexts ---")
+        n_concepts = min(args.concepts, len(vocab) - 1)
+        # the foundational concepts = the most frequent words (index 1..n, since 0=<UNK>)
+        concept_idx = list(range(1, n_concepts + 1))
+        contexts = []
+        for _ in range(args.contexts):
+            # pick a concept word, then find a training window containing it
+            c = concept_idx[rng.integers(0, len(concept_idx))]
+            # find rows in Xtr where this concept appears in the window
+            rows = np.where((Xtr == c).any(1))[0]
+            if len(rows) == 0:
+                continue
+            i = rows[rng.integers(0, len(rows))]
+            contexts.append([vocab[int(Xtr[i, k])] for k in range(W)])
+        if not contexts:
+            contexts = [[vocab[int(Xtr[i, k])] for k in range(W)]
+                        for i in rng.choice(len(Xtr), size=min(args.contexts, len(Xtr)), replace=False)]
+        print(f"\n--- round {r+1}: asking teacher for twinges on {len(contexts)} concept-centered contexts ---")
         t0 = time.time()
         twinges = se.teacher_twinge(client, args.model, contexts)
         n_valid = sum(1 for _, d in twinges if d)
