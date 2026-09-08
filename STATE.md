@@ -22,6 +22,11 @@ no CUDA). Any experiment drifting toward "train a big model" gets flagged.
   refactor fixed FAST OR USELESS). Command: `python tests/test_phase_native.py`.
 - The remote has moved past the old handoff: current frontier is the
   **signal-engine / guide-loop** arc (see below).
+- **web_nautilus model-agnostic plugin contract: VERIFIED.** The pending work from
+  session 20260830_155953 (make any Nautilus structure plug into the same
+  visualization/demo environment) is complete (commit cff1531) and pushed. JS
+  forward pass matches numpy to **8.9e-16** (verified via node, not trusted).
+  Regenerated HTML committed (7501c6f/1988d32).
 
 ## The Current Frontier — "the LLM guides, the structure decides"
 
