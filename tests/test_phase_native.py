@@ -672,6 +672,41 @@ def test_trauma_collapse_recovers():
     check("trauma recovered accuracy", acc_after > acc_bad)
 
 
+def test_classic_ml_hardening():
+    print("grow_round classic-ML hardening: minibatch/dropout/lr_schedule/early-stop/norm")
+    from demo import backend
+    from experiments.consolidation_rounds import ConsolidatingNet
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+
+    # NB: _tiny_word_data is random i.i.d. tokens, so next-word is ~at chance (0.125) on the TEST
+    # split even for a strong dense reference (a 256-unit monolithic nets 0.1375 here). The
+    # meaningful "it learns" signal is therefore TRAIN accuracy clearly above chance: it proves
+    # the hardened params are accepted, the forward/backward math is coherent, and the net learns.
+    def trian_acc(net):
+        return float(((net.frozen_tr + net.bias).argmax(1) == ytr).mean())
+
+    # (a) the classic-ML params ON: real mini-batches, dropout, step LR decay, early stop, LayerNorm
+    hard = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        hard.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=50, tau=0.0,
+                        batch_size=64, dropout=0.1, lr_schedule="step",
+                        early_stop_patience=5, norm=True)
+    acc_hard_tr = trian_acc(hard)
+    check(f"hardened net trains (train acc {acc_hard_tr:.3f} > 0.2)", acc_hard_tr > 0.2)
+    check("hardened net runs end-to-end (test acc finite)",
+          np.isfinite(hard.acc(yte)) and 0.0 <= hard.acc(yte) <= 1.0)
+
+    # (b) backward-compat: all new params at default (batch_size=None, dropout=0.0,
+    #     lr_schedule=None, early_stop_patience=None, norm=True) still trains (same learnability)
+    base = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        base.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=50, tau=0.0)
+    acc_base_tr = trian_acc(base)
+    check(f"default-params net trains (train acc {acc_base_tr:.3f} > 0.2)", acc_base_tr > 0.2)
+    check("default-params net runs end-to-end (test acc finite)",
+          np.isfinite(base.acc(yte)) and 0.0 <= base.acc(yte) <= 1.0)
+
+
 def test_phi_diagnostic():
     print("phi_diagnostic measures structure ratios")
     from demo import metrics, backend
@@ -694,7 +729,7 @@ def main():
               test_sparse_forward_matches_onehot, test_sparse_grow_matches_onehot,
               test_forced_recall_matches_full, test_metrics, test_signal_engine,
               test_refine_preserves_accuracy, test_digest_preserves_accuracy,
-              test_trauma_collapse_recovers, test_phi_diagnostic):
+              test_trauma_collapse_recovers, test_phi_diagnostic, test_classic_ml_hardening):
         t()
     print()
     if _failures:

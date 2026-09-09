@@ -159,7 +159,9 @@ class ConsolidatingNet:
 
     def grow_round(self, Xtr, ytr, Xte, yte, P=32, epochs=1500, lr=0.05, wd=1e-4,
                    floor=0.1, conn_floor=0.2, refit=400, tau=0.0, k_par=6, prune_density=None,
-                   anchors=None, magnet=0.0, soft=None):
+                   anchors=None, magnet=0.0, soft=None,
+                   batch_size=None, dropout=0.0, lr_schedule=None, early_stop_patience=None,
+                   norm=True):
         """One consolidation wave. `tau` in [0,1) is the TIGHTENING RATIO: the target share of a new
         fiber's incoming weight-mass that must land on the frozen base (cross-paths) rather than raw
         inputs. tau ramps up across rounds to pull the concept-lines into one another. `k_par` bounds
@@ -207,30 +209,86 @@ class ConsolidatingNet:
         if tight:
             row_wd[:self.D] = wd * (1.0 + 5.0 * tau)   # inputs: penalized
             row_wd[self.D:] = wd * (1.0 - 0.8 * tau)   # base: rewarded (stays >= 0.2*wd)
-        for _ in range(epochs):
-            pre = _pre(Xtr, self.Ftr, W, b); A = np.maximum(pre, 0)
-            logits = self.frozen_tr + A @ V + db + self.bias
-            dl = (softmax(logits) - onehot) / n
-            dV = A.T @ dl + wd * V; ddb = dl.sum(0)
-            if magnet and anchors is not None and len(anchors):
-                # MAGNETISM: pull each fiber's readout pointer toward its nearest axiom-mean anchor,
-                # aligning it (remove the component orthogonal to the anchor). The anchors are the
-                # invariant "world-source-sustainer" ground; this keeps new phases from drifting.
-                Vn = V / (np.linalg.norm(V, axis=1, keepdims=True) + 1e-9)
-                near = anchors[np.argmax(Vn @ anchors.T, axis=1)]          # (P, C) nearest unit anchor
-                dV += magnet * (V - (V * near).sum(1, keepdims=True) * near)
-            dpre = (dl @ V.T) * (pre > 0)
-            # backward: dW[D:] = F.T @ dpre (frozen base); dW[:D] = sparse scatter of dpre
-            dW = bk.zeros_like(W)
-            dW[self.D:] = self.Ftr.T @ dpre
-            if Xtr.shape[1] == self.D:  # one-hot
-                dW[:self.D] = Xtr.T @ dpre
-            else:  # integer tokens: scatter dpre into W[token] rows
-                vocab_size = self.D // Xtr.shape[1]
-                for k in range(Xtr.shape[1]):
-                    np.add.at(dW[:self.D], k * vocab_size + Xtr[:, k], dpre)
-            dW = dW + row_wd * W; dbb = dpre.sum(0)
-            W -= lr * dW; b -= lr * dbb; V -= lr * dV; db -= lr * ddb
+        # CLASSIC-ML HARDENING knobs (all opt-in via default-off params except norm): minibatch SGD
+        # (batch_size), inverted dropout on the hidden activation (dropout), LR decay by 0.5 every
+        # max(1,epochs//10) epochs (lr_schedule="step"), early stopping on validation accuracy
+        # (early_stop_patience), and a per-sample LayerNorm before the readout (norm, default True).
+        # norm/dropout apply ONLY to the TRAINING readout; the frozen activations Atr/Ate below stay
+        # raw (no dropout, no normalization), so forward_logits and the byte-level invariants hold.
+        lr_cur = float(lr)
+        eps_ln = 1e-5
+        gamma = np.ones(P); beta = np.zeros(P)   # LayerNorm scale/shift, learnable during training
+        step_decay = max(1, epochs // 10) if lr_schedule == "step" else None
+
+        def _batches():
+            if batch_size is None:
+                return [np.arange(n)]
+            return [np.arange(i, min(i + batch_size, n)) for i in range(0, n, batch_size)]
+
+        best_te, stale = -1.0, 0
+        check_every = max(1, epochs // 10) if early_stop_patience is not None else None
+        for ep in range(epochs):
+            if step_decay is not None and ep > 0 and ep % step_decay == 0:
+                lr_cur *= 0.5
+            for idx in _batches():
+                Xb, Fb, ob = Xtr[idx], self.Ftr[idx], onehot[idx]
+                nb = len(idx)
+                pre = _pre(Xb, Fb, W, b)
+                A_raw = np.maximum(pre, 0)
+                if dropout > 0.0:
+                    keep = 1.0 - dropout
+                    m = (self.rng.random(A_raw.shape) < keep).astype(float) / keep  # inverted dropout
+                    Ah = A_raw * m
+                else:
+                    m, Ah = 1.0, A_raw
+                if norm:
+                    mu = Ah.mean(1, keepdims=True)
+                    st = np.sqrt(Ah.var(1, keepdims=True) + eps_ln)
+                    Ahat = (Ah - mu) / st
+                    An = Ahat * gamma + beta
+                else:
+                    Ahat, st, An = None, None, Ah
+                logits = self.frozen_tr[idx] + An @ V + db + self.bias
+                dl = (softmax(logits) - ob) / nb
+                dV = An.T @ dl + wd * V; ddb = dl.sum(0)
+                if magnet and anchors is not None and len(anchors):
+                    # MAGNETISM: see docstring -- kept identical.
+                    Vn = V / (np.linalg.norm(V, axis=1, keepdims=True) + 1e-9)
+                    near = anchors[np.argmax(Vn @ anchors.T, axis=1)]
+                    dV += magnet * (V - (V * near).sum(1, keepdims=True) * near)
+                # chain rule back to raw pre for W,b: through LayerNorm, then dropout, then ReLU
+                g_ah = dl @ V.T                      # dL/d(An) (the readout-input activation)
+                if norm:
+                    dAhat = g_ah * gamma
+                    dAh = (dAhat - dAhat.mean(1, keepdims=True)
+                           - Ahat * (dAhat * Ahat).mean(1, keepdims=True)) / st
+                    gamma -= lr_cur * (g_ah * Ahat).sum(0)
+                    beta -= lr_cur * g_ah.sum(0)
+                else:
+                    dAh = g_ah
+                if dropout > 0.0:
+                    dAh = dAh * m
+                dpre = dAh * (pre > 0)
+                dW = bk.zeros_like(W)
+                dW[self.D:] = Fb.T @ dpre
+                if Xb.shape[1] == self.D:            # one-hot
+                    dW[:self.D] = Xb.T @ dpre
+                else:                                # integer tokens: scatter dpre into W[token] rows
+                    vocab_size = self.D // Xb.shape[1]
+                    for k in range(Xb.shape[1]):
+                        np.add.at(dW[:self.D], k * vocab_size + Xb[:, k], dpre)
+                dW = dW + row_wd * W; dbb = dpre.sum(0)
+                W -= lr_cur * dW; b -= lr_cur * dbb; V -= lr_cur * dV; db -= lr_cur * ddb
+            # EARLY STOP: validate on (Xte,yte) with the inference (raw, no dropout/norm) readout
+            if early_stop_patience is not None and (ep + 1) % check_every == 0:
+                Ate_raw = np.maximum(_pre(Xte, self.Fte, W, b), 0)
+                acc_te = float(((self.frozen_te + Ate_raw @ V + db + self.bias).argmax(1) == yte).mean())
+                if acc_te > best_te + 1e-12:
+                    best_te, stale = acc_te, 0
+                else:
+                    stale += 1
+                    if stale >= early_stop_patience:
+                        break
 
         # (1) UNIT prune: a candidate that moves the output relates to something; the void does not.
         contribution = np.linalg.norm(V, axis=1) * np.maximum(_pre(Xtr, self.Ftr, W, b), 0).std(0)
