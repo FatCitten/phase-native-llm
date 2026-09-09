@@ -751,6 +751,37 @@ def test_distill_preserves_accuracy():
     check("no new round added (structure unchanged)", len(net.frozen_W) == 2)
 
 
+def test_holonomy_field():
+    print("holonomy field: per-fiber memory + phi-gated lean bundle (understanding retrieval)")
+    from demo import backend, holonomy
+    from experiments.consolidation_rounds import ConsolidatingNet
+    from demo import wordlm
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
+    hf = holonomy.HolonomyField(net)
+    hf.accumulate(Xtr)
+    b1 = hf.bundle(Xtr[0])
+    b2 = hf.bundle(Xtr[0])
+    check("holonomy accumulated (field non-empty)", hf.H_mag.sum() > 0)
+    check("bundle returns aligned vectors/targets/mags",
+          len(b1['vectors']) == len(b1['axiom_targets']) == len(b1['holonomy']))
+    check("bundle vectors are finite", all(np.isfinite(v).all() for v in b1['vectors']))
+    _in_axioms = all(t in hf.axioms for t in b1['axiom_targets']) if b1['axiom_targets'] else False
+    check("AIMS LAND ON AXIOMS (the leans point at core concepts)", _in_axioms)
+    check("bundle is stable (same input -> same targets)", b1['axiom_targets'] == b2['axiom_targets'])
+    check("retrieval is vector-SHAPED (per-fiber vectors)",
+          all(v.shape == (hf.n_fibers,) for v in b1['vectors']))
+    b3 = hf.bundle(Xtr[5])
+    check("discrimination: both inputs yield firing bundles",
+          b1['n_leans'] > 0 and b3['n_leans'] > 0)
+    check("discrimination: targets are valid axioms on both",
+          all(t in hf.axioms for t in b3['axiom_targets']))
+    print(f"    H_mag.sum()={hf.H_mag.sum():.4f}  n_leans[bundle(Xtr[0])]={b1['n_leans']}  "
+          f"axiom_targets={b1['axiom_targets']}  in_axioms={_in_axioms}")
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -761,7 +792,7 @@ def main():
               test_forced_recall_matches_full, test_metrics, test_signal_engine,
               test_refine_preserves_accuracy, test_digest_preserves_accuracy,
               test_trauma_collapse_recovers, test_phi_diagnostic, test_distill_preserves_accuracy,
-              test_classic_ml_hardening):
+              test_holonomy_field, test_classic_ml_hardening):
         t()
     print()
     if _failures:
