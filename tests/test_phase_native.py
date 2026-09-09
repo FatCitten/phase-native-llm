@@ -782,6 +782,17 @@ def test_holonomy_field():
           f"axiom_targets={b1['axiom_targets']}  in_axioms={_in_axioms}")
 
 
+def test_textbook_provider_contract():
+    print("textbook provider: teacher as data extractor (contract, no LLM call)")
+    from demo import signal_engine
+    check("textbook_provider method exists on SignalEngine",
+          hasattr(signal_engine.SignalEngine, "textbook_provider"))
+    import inspect
+    sig = inspect.signature(signal_engine.SignalEngine.textbook_provider)
+    check("textbook_provider takes (client, model, contexts)",
+          list(sig.parameters)[1:4] == ["client", "model", "contexts"])
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -792,7 +803,7 @@ def main():
               test_forced_recall_matches_full, test_metrics, test_signal_engine,
               test_refine_preserves_accuracy, test_digest_preserves_accuracy,
               test_trauma_collapse_recovers, test_phi_diagnostic, test_distill_preserves_accuracy,
-              test_holonomy_field, test_classic_ml_hardening):
+              test_holonomy_field, test_textbook_provider_contract, test_classic_ml_hardening):
         t()
     print()
     if _failures:

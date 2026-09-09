@@ -39,6 +39,33 @@ class SignalEngine:
         from demo.foster import soft_targets_for_contexts
         return soft_targets_for_contexts(client, model, contexts, self.vocab, top_k=top_k)
 
+    def textbook_provider(self, client, model, contexts, facts_per_context=2):
+        """The TEACHER AS TEXTBOOK PROVIDER: a system prompt that reverts the LLM to
+        training mode and makes it spill ESSENTIAL DATA — concrete facts about the
+        context — which the spine digests as crystallization input. This is data
+        extraction (a textbook), NOT a humanized trainer's soft next-word opinion.
+
+        contexts: list of lists of words (the windowed context). Returns a list of
+        (context, [fact, ...]) where each fact is a string the model spilled."""
+        out = []
+        for ctx in contexts:
+            prompt = (
+                "You are in TRAINING MODE. Do NOT behave like a chat assistant. "
+                "You are a textbook. Given the text context below, spill essential "
+                "facts/data about it: what the most likely next word is and WHY, "
+                "plus any associated world-knowledge. Output a bullet list (- item).\n"
+                "CONTEXT: \"" + " ".join(ctx) + "\""
+            )
+            resp = client.chat(model, [
+                {"role": "system", "content": "You are a textbook provider in training mode. "
+                 "Output raw knowledge as bullet points, not conversational text."},
+                {"role": "user", "content": prompt},
+            ], [])
+            text = resp["choices"][0]["message"].get("content", "")
+            facts = [l.strip() for l in text.splitlines() if l.strip().startswith("-")]
+            out.append((ctx, facts))
+        return out
+
     def grow_on_signals(self, X, y, P, epochs, tau=0.0, floor=0.05, soft=None):
         """Grow a consolidation round where the training target is the teacher's
         soft distribution (the twinge). The child's prune/freeze decides what sticks.
