@@ -98,14 +98,26 @@ def main():
         n_valid = sum(1 for _, d in twinges if d)
         print(f"got {n_valid}/{len(twinges)} twinges in {time.time()-t0:.0f}s")
 
-        # build soft-target matrix from the twinges
+        # the TEACHER AS TEXTBOOK PROFESSOR: spill raw knowledge about these contexts
+        # (the "materials") that the distillation below digests as the soft signal.
+        facts = se.textbook_provider(client, args.model, contexts, facts_per_context=1)
+        n_facts = sum(1 for _, f in facts if f)
+        print(f"textbook: got facts on {n_facts}/{len(facts)} contexts")
+
+        # build soft-target matrix from the twinges (the textbook knowledge, in prob form)
         from demo.foster import soft_target_matrix
         Xs, Ps, valid = soft_target_matrix(contexts, [d for _, d in twinges], vocab, W)
 
         # grow/refine the child on the teacher's signals (the child decides what sticks)
         if args.mode == "refine":
-            se.refine_on_signals(Xs, np.zeros(len(Xs), dtype=int), Ps, epochs=args.epochs)
-            print("refined readout toward teacher signals")
+            # HINTON distillation: hard-label CE toward the teacher's top pick + a small
+            # KL-to-teacher regularizer (so the child learns the FULL soft distribution, not
+            # just the argmax). The true next-word label is unavailable for synthetic
+            # teacher contexts, so we use the teacher's mode as the hard target.
+            y_teach = Ps.argmax(1)
+            dstat = se.refine_on_signals_distill(Xs, y_teach, Ps, epochs=args.epochs)
+            print(f"distill-refined readout toward teacher textbook signals: "
+                  f"{json.dumps(dstat)}")
         else:
             stats = se.grow_on_signals(Xs, np.zeros(len(Xs), dtype=int), P=24,
                                        epochs=args.epochs, tau=0.0, soft=Ps)
