@@ -16,6 +16,14 @@ import numpy as np
 PHI = (1 + 5**0.5) / 2   # the golden ratio = the retention/retrieval gate
 
 
+def phi_gate(magnitudes, phi=(1 + 5**0.5) / 2):
+    """THE golden-ratio retention/retrieval gate — ONE definition, shared by the
+    bundle and the retention decision. A lean/fiber is KEPT iff its holonomy
+    magnitude >= 1/phi (~0.618). This is 'the gate that decides if something stays'
+    (path of least resistance)."""
+    return [m >= 1.0 / phi for m in magnitudes]
+
+
 class HolonomyField:
     """Per-fiber accumulated directional memory. The retrieval component."""
 
@@ -85,7 +93,7 @@ class HolonomyField:
             if d is None:
                 continue
             v, t, m = d
-            if m >= 1.0 / PHI:   # THE golden-ratio retention/retrieval gate (~0.618)
+            if phi_gate([m])[0]:   # THE shared golden-ratio retention/retrieval gate (~0.618)
                 vecs.append(v * m)
                 targets.append(t)
                 mags.append(m)

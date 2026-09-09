@@ -23,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 
-from demo import signal_engine, wordlm
+from demo import holonomy, signal_engine, wordlm
 from demo.demo import load_sections
 from experiments.consolidation_rounds import ConsolidatingNet
 from phase_native.ollama_agent import OllamaClient
@@ -120,6 +120,13 @@ def main():
         phi = metrics.phi_diagnostic(net)
         print(f"after round {r+1}: {json.dumps(se.measure(), default=float)} "
               f"phi_mean={phi['mean_ratio']}")
+
+        # phi retention report: expose THE shared golden-ratio gate as the decision
+        hf = holonomy.HolonomyField(se.net)
+        hf.accumulate(Xs)
+        phi_kept = sum(holonomy.phi_gate(hf.H_mag))
+        print(f"phi-retention: kept {phi_kept}/{len(hf.H_mag)} fibers "
+              f"({json.dumps({'phi_kept': int(phi_kept), 'total': len(hf.H_mag)})})")
 
     # save the grown child
     from demo.engine import StructureEngine

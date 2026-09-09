@@ -793,6 +793,25 @@ def test_textbook_provider_contract():
           list(sig.parameters)[1:4] == ["client", "model", "contexts"])
 
 
+def test_phi_gate():
+    print("phi_gate: ONE shared golden-ratio retention threshold (harmonized bundle + retention)")
+    from demo import holonomy, backend
+    from experiments.consolidation_rounds import ConsolidatingNet
+    check("phi_gate keeps mag>=1/phi, drops below",
+          holonomy.phi_gate([1.0, 0.5, 0.62, 0.1]) == [True, False, True, False])
+    # harmonization: bundle uses the same threshold. Build tiny net, accumulate, then
+    # assert the retained leans satisfy phi_gate (no retained lean below 1/phi).
+    Xtr, ytr, Xte, yte, vocab, W, D, C = _tiny_word_data()
+    net = ConsolidatingNet(D, C, seed=1, backend=backend.NumpyBackend())
+    for r in range(2):
+        net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
+    hf = holonomy.HolonomyField(net)
+    hf.accumulate(Xtr)
+    b = hf.bundle(Xtr[0])
+    check("all retained leans pass the shared phi gate",
+          all(m >= 1 / holonomy.PHI for m in b['holonomy']) if b['holonomy'] else True)
+
+
 def main():
     for t in (test_crt, test_ops, test_memory, test_composition, test_scripted_loop,
               test_agent_plumbing, test_ollama_agent_plumbing, test_lucid_fuzzy, test_consolidation,
@@ -803,7 +822,8 @@ def main():
               test_forced_recall_matches_full, test_metrics, test_signal_engine,
               test_refine_preserves_accuracy, test_digest_preserves_accuracy,
               test_trauma_collapse_recovers, test_phi_diagnostic, test_distill_preserves_accuracy,
-              test_holonomy_field, test_textbook_provider_contract, test_classic_ml_hardening):
+              test_holonomy_field, test_textbook_provider_contract, test_phi_gate,
+              test_classic_ml_hardening):
         t()
     print()
     if _failures:
