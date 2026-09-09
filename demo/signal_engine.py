@@ -89,6 +89,44 @@ class SignalEngine:
         net.bias = b
         return {"refined": True, "epochs": epochs}
 
+    def refine_on_signals_distill(self, X, y, soft, epochs=200, lr=0.05, wd=1e-4,
+                                  lam=0.1, temp=2.0):
+        """HINTON-style regularized distillation: child's hard-label CE + small
+        KL-to-teacher regularizer. The child learns from its TRUE labels (y) and is
+        gently nudged toward the teacher's soft distribution (soft) on the same X.
+        `lam` is the teacher weight (small — child's own data dominates), `temp`
+        scales the teacher term (higher=softer=more info). Replaces the pure
+        teacher-CE refine_on_signals that collapsed accuracy to 5% three times.
+        Returns {"distilled": True, "lam": lam, "temp": temp, "epochs": epochs}."""
+        from experiments.consolidation_rounds import softmax
+        net = self.net
+        self._recompute_base(X, self.X_new)
+        A = net.Ftr                                  # (n, total_fibers) frozen-base acts
+        V = np.concatenate(net.frozen_V, 0)          # (total_fibers, C)
+        b = net.bias.copy()
+        n = len(X)
+        y = np.asarray(y)
+        onehot = np.eye(net.C)[y]                    # TRUE labels
+        soft = np.asarray(soft, float)
+        if soft.shape != (n, net.C):
+            raise ValueError(f"soft targets shape {soft.shape} != (n={n}, C={net.C})")
+        for _ in range(epochs):
+            logits = A @ V + b
+            # hard-label cross-entropy term (child's own data dominates)
+            dh = (softmax(logits) - onehot) / n
+            # teacher KL term at temperature temp
+            ds = (softmax(logits / temp) - soft) / n
+            grad = dh + lam * ds
+            V -= lr * (A.T @ grad + wd * V)
+            b -= lr * grad.sum(0)
+        idx = 0
+        for r in range(len(net.frozen_V)):
+            w = net.frozen_V[r].shape[0]
+            net.frozen_V[r] = V[idx:idx + w].copy()
+            idx += w
+        net.bias = b
+        return {"distilled": True, "lam": lam, "temp": temp, "epochs": epochs}
+
     def digest_round(self, X, y, keep_frac=0.5):
         """DIGEST-THEN-FORGET: after a signal solidifies, prune the non-load-bearing
         scaffolding fibers — those whose removal doesn't change the output. This is
