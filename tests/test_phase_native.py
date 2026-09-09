@@ -762,6 +762,11 @@ def test_holonomy_field():
         net.grow_round(Xtr, ytr, Xte, yte, P=16, epochs=30, tau=0.0)
     hf = holonomy.HolonomyField(net)
     hf.accumulate(Xtr)
+    # LEARNED lean: at least SOME fibers must have a nonzero H row pointing at a
+    # real round-1 axiom (the bundle is non-empty with real targets, not raw inputs).
+    n_axiom_rows = int((hf.H[:, hf.axioms].sum(1) > 0).sum())
+    check("some fibers lean on a real axiom (learned path-to-axiom)",
+          n_axiom_rows > 0)
     b1 = hf.bundle(Xtr[0])
     b2 = hf.bundle(Xtr[0])
     check("holonomy accumulated (field non-empty)", hf.H_mag.sum() > 0)

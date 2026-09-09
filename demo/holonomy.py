@@ -42,10 +42,52 @@ class HolonomyField:
             return wordlm.one_hot(X, self.net.D // X.shape[1])
         return X
 
+    def _locate(self, g):
+        """Global fiber index -> (round, col). None if out of range."""
+        col_g = 0
+        for r, Wr in enumerate(self.net.frozen_W):
+            n_r = Wr.shape[1]
+            if g < col_g + n_r:
+                return r, g - col_g
+            col_g += n_r
+        return None
+
+    def _walk_to_axiom(self, f, max_hops=20):
+        """LEARNED path-to-axiom: walk UP the stem from fiber f, at each step
+        following the dominant source (argmax |W col|), until we reach a round-1
+        fiber (an axiom, the distance-0 core concept). Returns the axiom's global
+        index, or None if the path dead-ends at a raw input or loops (a lean that
+        'does not work' — the phi-gate discards it because no target is written).
+        Bounded (max_hops) and cycle-safe (revisit -> None)."""
+        seen = set()
+        cur = f
+        for _ in range(max_hops):
+            if cur in seen:
+                return None  # cycle: a fiber that loops back
+            seen.add(cur)
+            loc = self._locate(cur)
+            if loc is None:
+                return None
+            r, j = loc
+            if r == 0:
+                return cur  # round-1 fiber = an axiom
+            Wr = self.net.frozen_W[r]
+            col = np.abs(Wr[:, j])
+            if col.sum() == 0:
+                return None
+            s = int(np.argmax(col))
+            if s < self.net.D:
+                return None  # dead-end at a raw input (no axiom reachable)
+            cur = s - self.net.D
+        return None
+
     def accumulate(self, X):
-        """Grow the memory: each fiber's firing on X adds a pull toward its
-        dominant source (the fiber it reads most strongly). 'What happened
-        because of the past.' Returns self."""
+        """Grow the memory: LEANING IS THE LEARNING. Each firing fiber's lean is
+        LEARNED from co-firing experience by walking UP the stem to the round-1
+        AXIOM it compositionally reduces to (the 'short simplified path to the
+        core concept'). A fiber that dead-ends at a raw input still accrues
+        magnitude ('finding what does not work first') but writes NO target, so
+        the phi-gate prunes it. Returns self."""
         from experiments.society import forward_feats
         Xd = self._dense(X)
         As = forward_feats(self.net, Xd)
@@ -58,12 +100,14 @@ class HolonomyField:
                 col = np.abs(Wr[:, j])
                 if col.sum() == 0:
                     continue
-                s = int(np.argmax(col))
-                target = -1 if s < self.net.D else s - self.net.D  # dominant source
                 rate = fired[:, col_g + j].mean()
-                if target >= 0 and rate > 0:
-                    self.H[col_g + j, target] += rate
+                if rate <= 0:
+                    continue
                 self.H_mag[col_g + j] += rate
+                # LEARN the lean: walk up the stem to the round-1 axiom.
+                axiom = self._walk_to_axiom(col_g + j)
+                if axiom is not None:
+                    self.H[col_g + j, axiom] += rate
             col_g += n_r
         return self
 
